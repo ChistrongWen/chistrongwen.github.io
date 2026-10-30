@@ -30,12 +30,15 @@
     @media(max-width:760px){.highlight{grid-template-columns:1fr;gap:22px;margin-bottom:56px}.highlight:nth-of-type(even) .highlight-figure{order:0}}
 
     /* Home animations: preserve original page structure */
-    .hero-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,440px);align-items:center;gap:32px}
+    .hero .wrap{width:min(1250px,calc(100% - 44px))}
+    .hero-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,560px);align-items:center;gap:24px}
     .hero-copy{min-width:0}
     .hero-layout .hero-copy h1{font-size:clamp(2.7rem,4.5vw,4.35rem)}
-    .hero-animations{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:center;min-width:0}
-    .hero-animations img{display:block;width:100%;height:auto;object-fit:contain;min-width:0}
-    @media(max-width:900px){.hero-layout{grid-template-columns:1fr;gap:26px}.hero-animations{max-width:500px;margin:0 auto;width:100%}}
+    .hero-animations{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-width:0}
+    .hero-animations img{display:block;height:auto;object-fit:contain;min-width:0}
+    .hero-animations img:first-child{width:76%;max-width:360px}
+    .hero-animations img:last-child{width:100%;max-width:470px}
+    @media(max-width:900px){.hero-layout{grid-template-columns:1fr;gap:26px}.hero-animations{max-width:560px;margin:0 auto;width:100%}}
     /* Academic CV and conference talks */
     .cv-timeline{list-style:none;padding:0;margin:26px 0 0;display:grid;gap:0}
     .cv-timeline li{display:grid;grid-template-columns:115px minmax(0,1fr);gap:18px;padding:17px 0;border-bottom:1px solid var(--line)}
@@ -47,7 +50,7 @@
   <script defer src="assets/analytics.js"></script>
 </head>
 <body>
-<header><nav class="wrap" aria-label="Main navigation"><a class="brand" href="#home">Chistrong Wen</a><div class="links"><a href="#about">About</a><a href="#research">Research</a><a href="#highlights">Highlights</a><a href="notes/">Research Notes</a><a href="#publications">Publications</a><a href="#cv">Academic CV</a><a href="#talks">Talks</a><a href="#projects">Projects</a><a href="#contact">Contact</a></div></nav></header>
+<header><nav class="wrap" aria-label="Main navigation"><a class="brand" href="#home">Chistrong Wen</a><div class="links"><a href="#about">About</a><a href="#research">Research</a><a href="#highlights">Highlights</a><a href="notes/">Research Notes</a><a href="earth/">Interactive Earth</a><a href="#publications">Publications</a><a href="#cv">Academic CV</a><a href="#talks">Talks</a><a href="#projects">Projects</a><a href="#contact">Contact</a></div></nav></header>
 <main>
   <div class="hero" id="home">
     <div class="wrap hero-layout">
