@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Zhiqiang Wen — Geodesy, solid Earth deformation, sea level change, and satellite gravimetry." />
+  <title>Zhiqiang Wen | Academic Website</title>
+  <style>
+    :root{--ink:#18283c;--muted:#5d7082;--blue:#1468a0;--paper:#f6f9fc;--line:#e1e8ef;--white:#fff}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:var(--ink);line-height:1.7;background:var(--white)}
+    .wrap{width:min(1050px,calc(100% - 44px));margin:auto}header{border-bottom:1px solid var(--line);background:white;position:sticky;top:0;z-index:10}nav{min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:20px}nav .brand{font-weight:750;letter-spacing:.015em;font-size:1.1rem;color:var(--ink);text-decoration:none}nav .links{display:flex;flex-wrap:wrap;gap:19px}a{color:var(--blue)}nav .links a{text-decoration:none;color:var(--muted);font-size:.92rem}nav .links a:hover{color:var(--blue)}
+    .hero{background:linear-gradient(120deg,#f3f8fc,#fff);padding:94px 0 82px}.eyebrow{color:var(--blue);font-weight:700;letter-spacing:.15em;text-transform:uppercase;font-size:.75rem}.hero h1{font-size:clamp(2.7rem,6vw,4.9rem);line-height:1.08;letter-spacing:-.045em;margin:12px 0 18px}.hero h2{font-size:clamp(1.1rem,2.2vw,1.45rem);font-weight:500;color:#486177;margin:0 0 16px}.hero p{max-width:720px;color:var(--muted);font-size:1.06rem}.buttons{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}.button{display:inline-block;text-decoration:none;padding:10px 19px;border-radius:7px;font-weight:650;font-size:.93rem;border:1px solid var(--blue)}.primary{color:white;background:var(--blue)}.secondary{color:var(--blue);background:white}
+    section{padding:73px 0;scroll-margin-top:80px}section.alt{background:var(--paper)}h3{font-size:1.85rem;letter-spacing:-.025em;margin:0 0 20px}p{margin-top:0}.intro{max-width:810px;color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:30px}.card{padding:26px;border:1px solid var(--line);border-radius:12px;background:white;box-shadow:0 4px 18px rgba(21,47,71,.035)}.card h4{font-size:1.11rem;margin:0 0 8px}.card p{color:var(--muted);margin:0}.muted{color:var(--muted)}.notice{padding:20px 23px;border-left:3px solid var(--blue);background:white;border-radius:5px}.footer{border-top:1px solid var(--line);padding:30px 0;color:var(--muted);font-size:.88rem}
+    @media(max-width:660px){nav{padding:15px 0;align-items:flex-start;flex-direction:column}nav .links{gap:12px}.hero{padding:65px 0}.grid{grid-template-columns:1fr}section{padding:54px 0}}
+
+    /* Research highlights: large figures with alternating descriptions */
+    .highlights-intro{max-width:800px;color:var(--muted);margin-bottom:42px}
+    .highlight{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:center;gap:42px;margin:0 0 70px}
+    .highlight:last-child{margin-bottom:0}
+    .highlight:nth-of-type(even) .highlight-figure{order:2}
+    .highlight-figure{margin:0;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+    .highlight-figure a{display:block}
+    .highlight-figure img{display:block;width:100%;height:auto;max-height:440px;object-fit:contain;transition:transform .25s ease}
+    .highlight-figure a:hover img{transform:scale(1.025)}
+    .highlight-figure figcaption{padding:10px 16px;font-size:.84rem;color:var(--muted);border-top:1px solid var(--line)}
+    .highlight-tag{display:inline-block;color:var(--blue);font-weight:750;text-transform:uppercase;letter-spacing:.11em;font-size:.72rem}
+    .highlight-copy h4{font-size:clamp(1.2rem,2.3vw,1.65rem);line-height:1.3;letter-spacing:-.025em;margin:13px 0 16px}
+    .highlight-copy p{color:var(--muted)}
+    .highlight-copy a{font-weight:650}
+    @media(max-width:760px){.highlight{grid-template-columns:1fr;gap:22px;margin-bottom:56px}.highlight:nth-of-type(even) .highlight-figure{order:0}}
+  </style>
+</head>
+<body>
+<header><nav class="wrap" aria-label="Main navigation"><a class="brand" href="#home">Zhiqiang Wen</a><div class="links"><a href="#about">About</a><a href="#research">Research</a><a href="#highlights">Highlights</a><a href="#publications">Publications</a><a href="#projects">Projects</a><a href="#contact">Contact</a></div></nav></header>
+<main>
+  <div class="hero" id="home"><div class="wrap"><div class="eyebrow">Academic Website</div><h1>Zhiqiang Wen</h1><h2>Geodesy · Solid Earth Deformation · Sea Level Change</h2><p>Research interests span satellite geodesy, regional sea level budgets, glacier and lake mass balance, and the interactions between surface mass redistribution and the solid Earth.</p><div class="buttons"><a class="button primary" href="#research">Explore Research</a><a class="button secondary" href="#publications">Publications</a></div></div></div>
+  <section id="about"><div class="wrap"><h3>About</h3><p class="intro">I study how water and ice mass changes interact with the solid Earth and influence geodetic observations. My research combines GNSS, GRACE/GRACE-FO, satellite altimetry, and geophysical modeling to investigate terrestrial water storage, glacier mass change, and regional sea level variations.</p><p class="muted">Affiliation and academic biography can be expanded here.</p></div></section>
+  <section class="alt" id="research"><div class="wrap"><h3>Research Interests</h3><div class="grid"><article class="card"><h4>Solid Earth Deformation</h4><p>Elastic and viscoelastic responses to changes in ice and water loading.</p></article><article class="card"><h4>Regional Sea Level Budget</h4><p>Satellite altimetry, ocean mass, steric changes, and seafloor deformation.</p></article><article class="card"><h4>Glacier & Lake Mass Balance</h4><p>Glacier change, lake water storage, and mass-budget closure in changing environments.</p></article><article class="card"><h4>Space Geodesy & Hydrology</h4><p>GNSS and GRACE-based estimates of terrestrial water storage variability.</p></article></div></div></section>
+  <section id="highlights" aria-labelledby="highlights-title">
+    <div class="wrap">
+      <h3 id="highlights-title">Research Highlights</h3>
+      <p class="highlights-intro">Selected research on the interactions among the solid Earth, cryosphere, hydrosphere, and ocean. Click any figure to view it at full resolution.</p>
+
+      <!-- IMAGE PATHS: replace filenames below if your four files use different names. -->
+      <article class="highlight">
+        <figure class="highlight-figure">
+          <a href="images/patagonia.png" target="_blank" rel="noopener noreferrer" aria-label="Open Patagonia research figure">
+            <img src="images/patagonia.png" alt="Research figure about glacier change and solid Earth deformation in Patagonia" loading="lazy">
+          </a>
+          <figcaption>Patagonia · glacier–lake–solid Earth interactions</figcaption>
+        </figure>
+        <div class="highlight-copy"><span class="highlight-tag">Cryosphere · Solid Earth</span>
+          <h4>Solid Earth Deformation and Glacier Mass Loss in Patagonia</h4>
+          <p>Satellite gravimetry captures not only glacier mass change but also lake water storage and the response of the solid Earth. This work investigates their combined effects on long-term and seasonal mass estimates.</p>
+        </div>
+      </article>
+
+      <article class="highlight">
+        <figure class="highlight-figure">
+          <a href="images/aral_sea.png" target="_blank" rel="noopener noreferrer" aria-label="Open Aral Sea research figure">
+            <img src="images/aral_sea.png" alt="Research figure about Aral Sea water loss and viscoelastic deformation" loading="lazy">
+          </a>
+          <figcaption>Aral Sea · water mass loss and solid Earth response</figcaption>
+        </figure>
+        <div class="highlight-copy"><span class="highlight-tag">Hydrology · Geodynamics</span>
+          <h4>Aral Sea Water Loss and Viscoelastic Rebound</h4>
+          <p>Combining lake observations, GRACE gravimetry, hydrological data, and geophysical modeling to quantify regional water depletion and investigate how the solid Earth influences the observed mass budget.</p>
+        </div>
+      </article>
+
+      <article class="highlight">
+        <figure class="highlight-figure">
+          <a href="images/north_pacific.png" target="_blank" rel="noopener noreferrer" aria-label="Open North Pacific research figure">
+            <img src="images/north_pacific.png" alt="Research figure showing North Pacific regional sea level budget components" loading="lazy">
+          </a>
+          <figcaption>North Pacific · regional sea level components</figcaption>
+        </figure>
+        <div class="highlight-copy"><span class="highlight-tag">Oceanography · Geodesy</span>
+          <h4>Regional Sea Level Budget in the North Pacific</h4>
+          <p>Integrating satellite altimetry, GRACE/GRACE-FO, ocean steric observations, and seafloor deformation to better understand regional sea level changes and possible budget discrepancies.</p>
+        </div>
+      </article>
+
+      <article class="highlight">
+        <figure class="highlight-figure">
+          <a href="images/hydrology.png" target="_blank" rel="noopener noreferrer" aria-label="Open hydrological loading research figure">
+            <img src="images/hydrology.png" alt="Research figure about hydrological loading and GNSS vertical deformation" loading="lazy">
+          </a>
+          <figcaption>Hydrological loading · GNSS and water storage</figcaption>
+        </figure>
+        <div class="highlight-copy"><span class="highlight-tag">Space Geodesy · Hydrology</span>
+          <h4>Hydrological Loading and GNSS Deformation</h4>
+          <p>Investigating the relationship between terrestrial water storage changes and vertical crustal displacement using GNSS observations, satellite gravimetry, and surface-loading models.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+  <section id="publications"><div class="wrap"><h3>Selected Publications</h3><div class="notice"><p class="muted" style="margin:0">Publication titles, journal details, DOI links, and downloadable PDFs will be added here.</p></div></div></section>
+  <section class="alt" id="projects"><div class="wrap"><h3>Research Projects</h3><div class="grid"><article class="card"><h4>Patagonia: Glaciers, Lakes & Solid Earth</h4><p>Separating glacier mass change, lake storage variability, and deformation effects.</p></article><article class="card"><h4>North Pacific Sea Level Budget</h4><p>Understanding regional sea level components and the role of ocean-bottom deformation.</p></article><article class="card"><h4>Aral Sea Mass Balance</h4><p>Linking regional water-storage decline with gravity observations and solid Earth response.</p></article><article class="card"><h4>Hydrological Loading and GNSS</h4><p>Exploring water storage changes and their geodetic signatures.</p></article></div></div></section>
+  <section id="contact"><div class="wrap"><h3>Contact</h3><p class="muted">GitHub: <a href="https://github.com/ChistrongWen">github.com/ChistrongWen</a></p><p class="muted">Academic email and Google Scholar profile can be added here.</p></div></section>
+</main>
+<footer class="footer"><div class="wrap">© <span id="year">2026</span> Zhiqiang Wen · Hosted on GitHub Pages</div></footer>
+<script>document.getElementById('year').textContent=new Date().getFullYear();</script>
+</body>
+</html>
