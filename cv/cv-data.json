@@ -42,15 +42,25 @@
       "citation_html": "Wang, H., Huang, Z., Wen, Z., &amp; Luo, Z. (2022). <a href=\"https://doi.org/10.1109/LGRS.2022.3164735\" rel=\"noopener\" target=\"_blank\">Lake Water Storage Changes in Northeast Hoh Xil Observed by Cryosat-2 and Landsat-5/7/8: Impact of the Outburst of Zhuonai Lake in 2011</a>. <em>IEEE Geoscience and Remote Sensing Letters, 19, 1–5</em>."
     }
   ],
-  "under_review": [
+  "under_review/in preparation": [
     {
       "html": "<strong>Wen, Z., Tourian, M. J., Woolway, R. I., Ou, Q., &amp; Sun, W. (2026).</strong> Solid Earth uplift induced by Aral Sea desiccation and its impact on regional mass balance. <em>Journal of Geophysical Research: Solid Earth</em> (major revision, status as stated in source CV)."
     },
     {
-      "html": "<strong>Wen, Z. (2026).</strong> Does glacier-induced elastic uplift bias future Tibetan lake volume estimates? (Planned submission to <em>Geophysical Journal International</em>, as stated in source CV.)"
+      "html": "<strong>Wen, Z. (2026).</strong> Does glacier-induced elastic uplift bias future Tibetan lake volume estimates? (Planned submission to <em>Geophysical Journal International</em>.)"
+    }
+    {
+      "html": "<strong>Wen, Z., Sun, W., Chen, J. (2026).</strong> What drives GRACE‐observed mass loss in the Tianshan region: glacier melt or groundwater depletion from 2003 to 2024? (<em>Environmental Research Letters</em>, under review.)"
+    }
+    {
+      "html": "<strong>Wen, Z., Wu, Q., Yi, S., et al. (2026).</strong> Impacts of lake and reservoir changes on water storage variation and GNSS vertical displacement in the Chinese mainland (Planned submission to <em>GPS Solutions</em>.)"
     }
   ],
   "talks": [
+    {
+      "date": "Oct 2026",
+      "content_html": "<strong>Annual Meeting of Chinese Geoscience Union (CGU)</strong><br/>Zhuhai, China <span class=\"muted\">· Oral Presentation</span>"
+    },
     {
       "date": "Apr 2025",
       "content_html": "<strong>European Geosciences Union General Assembly</strong><br/>Vienna, Austria <span class=\"muted\">· Poster</span>"
