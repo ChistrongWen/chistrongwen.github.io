@@ -1,0 +1,88 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="LiCSBAS2 安装与 LiCSAR Frame InSAR 数据下载：可复现科研笔记，Chistrong Wen"><title>LiCSBAS2 安装与 LiCSAR 数据下载 | Research Notes | Chistrong Wen</title><link rel="stylesheet" href="style.css"><script defer src="../assets/analytics.js"></script><style>
+.note{max-width:880px}.note p,.note li{line-height:1.9}.note h2{scroll-margin-top:92px}.note h3{font-size:1.15rem;margin-top:27px}.note pre{position:relative;overflow-x:auto;background:#19283b;color:#f0f5fa;border:1px solid #283a4e;border-radius:12px;padding:23px 20px 18px;line-height:1.65;font-size:.88rem}.note pre code{font-family:SFMono-Regular,Consolas,Monaco,monospace}.note .code-label{background:#18283c;color:#b9d9ef;padding:7px 12px;border-radius:7px 7px 0 0;display:inline-block;font-size:.8rem;font-weight:650;margin-bottom:-5px}.note table{border-collapse:collapse;width:100%;margin:18px 0 27px;font-size:.94rem}.note th,.note td{padding:11px 12px;border-bottom:1px solid #dce5ed;text-align:left;vertical-align:top}.note th{background:#f1f6fa}.note .tip{border-left:4px solid #1468a0;background:#f3f8fc;padding:16px 19px;border-radius:5px;margin:22px 0}.note .warn{border-left-color:#d59a24;background:#fff9ed}.note .toc{background:#f6f9fc}.note .toc li{margin-bottom:5px}.note code:not(pre code){padding:.12em .32em;background:#eef3f7;border-radius:4px}.hero h1{font-size:clamp(2rem,4vw,3.1rem)}.note .steps{padding-left:1.5em}.note img{max-width:100%}.note .small{color:#67798a;font-size:.88rem}.code-wrap{position:relative}.copy-btn{position:absolute;top:10px;right:10px;border:1px solid #718397;background:#32475d;color:white;border-radius:6px;padding:5px 9px;cursor:pointer;font-size:.78rem}.copy-btn:hover{background:#1468a0}
+</style></head><body><header><nav class="wrap nav"><a class="brand" href="../index.html">Chistrong Wen</a><div class="links"><a href="../index.html">Home</a><a href="../index.html#research">Research</a><a class="active" href="index.html">Research Notes</a><a href="../index.html#publications">Publications</a></div></nav></header><div class="hero"><div class="wrap"><div class="eyebrow">RESEARCH NOTE · INSAR &amp; CRUSTAL DEFORMATION</div><h1>LiCSBAS2 安装与 LiCSAR InSAR 数据下载</h1><p>从独立 Conda 环境部署到指定 Frame 的解缠干涉图、相干性与几何辅助数据获取。</p><div class="note-meta">Chistrong Wen · 2026-10-30 · Tutorial / Reproducible workflow · 中文</div></div></div><main class="wrap note"><a class="back" href="index.html">← 返回全部 Research Notes</a>
+<div class="notice"><strong>Reproducibility statement.</strong> 命令用法依据 LiCSBAS2 官方仓库和下载脚本说明核对。本文未在本机实际下载 Frame 数据，因此目录树为预期结构示意，而非已经验证的数据成果。所有时间窗口均需根据实际可用影像调整。</div>
+<div class="toc"><b>目录 / Contents</b><ol><li><a href="#abstract">研究目的与数据来源</a></li><li><a href="#install">环境配置与安装</a></li><li><a href="#workspace">工作目录</a></li><li><a href="#download">下载指定 Frame</a></li><li><a href="#range">按时间窗口下载</a></li><li><a href="#products">输出结构和数据含义</a></li><li><a href="#validate">质量检查与常见问题</a></li><li><a href="#limitations">适用范围与局限</a></li><li><a href="#references">引用与版本记录</a></li></ol></div>
+<h2 id="abstract">1. 研究目的与数据来源</h2>
+<p><strong>LiCSAR</strong> 提供 Sentinel-1 InSAR 处理成果；<strong>LiCSBAS2</strong> 是利用 LiCSAR 解缠干涉图与相干性产品进行时间序列分析的开源工具。本笔记聚焦于数据处理的前两步：① 构建可复现的软件环境；② 以 <code>114A_05790_131313</code> 为例获取可用于后续时间序列反演的输入数据。</p>
+<p>数据产品入口是 <a href="https://cometarchive.leeds.ac.uk/COMET-LiCS-portal/" target="_blank" rel="noopener">COMET-LiCS portal</a>，代码仓库为 <a href="https://github.com/yumorishita/LiCSBAS2" target="_blank" rel="noopener">yumorishita/LiCSBAS2</a>。请先在门户确认目标 Frame 以及有效观测日期，Frame 编号在这里作为命令示例，并不代表已经验证其当前服务状态。</p>
+<h2 id="install">2. 环境配置与安装</h2>
+<h3>2.1 克隆官方代码</h3>
+<div class="code-label">Bash · source</div><pre><code>git clone https://github.com/yumorishita/LiCSBAS2.git
+cd LiCSBAS2</code></pre>
+<h3>2.2 创建独立 Conda 环境</h3>
+<p>官方推荐使用仓库自带的 <code>LiCSBAS.yml</code> 创建环境。当前官方说明要求 Python 3.12 或更新版本；使用 YAML 构建环境优于将依赖手工安装进已有环境。</p>
+<div class="code-label">Bash · environment</div><pre><code>conda env create -f LiCSBAS.yml
+conda activate licsbas2
+python --version</code></pre>
+<h3>2.3 配置命令环境并验证</h3>
+<div class="code-label">Bash · verify</div><pre><code>source bashrc_LiCSBAS.sh
+LiCSBAS_check_install.py</code></pre>
+<div class="tip"><strong>终端提示：</strong><code>source</code> 只对当前 shell 会话生效。若新开终端后找不到 <code>LiCSBAS01_get_geotiff.py</code>，需重新激活 Conda 环境并加载对应 shell 配置。这里采用官方提供的 <code>bashrc_LiCSBAS.sh</code>。</div>
+<h2 id="workspace">3. 建立独立工作目录</h2>
+<p>安装完成后，从 LiCSBAS2 源代码目录返回上级目录，按 Frame ID 建立独立工作区，避免将下载数据直接写入软件代码目录。</p>
+<div class="code-label">Bash · workspace</div><pre><code>cd ..
+mkdir -p 114A_05790_131313
+cd 114A_05790_131313
+pwd</code></pre>
+<p>此时当前工作目录应以 <code>114A_05790_131313</code> 结尾。后续 Step 01 在当前工作目录创建数据子目录。</p>
+<h2 id="download">4. 下载指定 LiCSAR Frame</h2>
+<p>运行 Step 01，下载可用的解缠干涉图（unwrapped interferograms）、相干性（coherence）以及相关辅助数据。命令中的 <code>-f</code> 指定 Frame ID；不指定日期时将尝试检索该 Frame 的可用数据。</p>
+<div class="code-label">Bash · full availability</div><pre><code>LiCSBAS01_get_geotiff.py -f 114A_05790_131313</code></pre>
+<p>该命令与早期 LiCSBAS 下载工具同名，但本文使用 LiCSBAS2 的环境与脚本，不要误以为两个仓库的安装和依赖要求完全一致。</p>
+<h2 id="range">5. 按研究时段筛选干涉图</h2>
+<p>为降低数据量、对齐研究时段，可以加 <code>-s</code> 与 <code>-e</code>，日期格式均为 <code>YYYYMMDD</code>。</p>
+<h3>5.1 示例 A：2015–2016 年</h3>
+<div class="code-label">Bash · short window</div><pre><code>LiCSBAS01_get_geotiff.py \
+  -f 114A_05790_131313 \
+  -s 20150101 \
+  -e 20161231</code></pre>
+<h3>5.2 示例 B：2015–2025 年</h3>
+<div class="code-label">Bash · extended window</div><pre><code>LiCSBAS01_get_geotiff.py \
+  -f 114A_05790_131313 \
+  -s 20150101 \
+  -e 20251231</code></pre>
+<div class="tip warn"><strong>日期核对：</strong>原始草稿一处写“2015–2025”，但参数 <code>-e 20161231</code> 实际表示截止 <strong>2016-12-31</strong>。本笔记分别提供两种示例，避免误下载。日期条件限制的是所检索干涉图的时间范围，实际返回量还取决于该 Frame 的公开产品覆盖情况。</div>
+<h2 id="products">6. 输出目录与数据说明</h2>
+<p>正常运行后，预期会在工作区生成 <code>GEOC/</code> 目录。以下为<strong>示意结构</strong>（某些文件的实际命名和可用性可能因 Frame 和软件版本而变化）：</p>
+<div class="code-label">Directory tree · schematic</div><pre><code>114A_05790_131313/
+└── GEOC/
+    ├── 114A_05790_131313.geo.E.tif
+    ├── 114A_05790_131313.geo.N.tif
+    ├── 114A_05790_131313.geo.U.tif
+    ├── 114A_05790_131313.geo.hgt.tif
+    ├── baselines
+    ├── metadata.txt
+    ├── YYYYMMDD_YYYYMMDD/
+    │   ├── YYYYMMDD_YYYYMMDD.geo.unw.tif
+    │   └── YYYYMMDD_YYYYMMDD.geo.cc.tif
+    └── YYYYMMDD_YYYYMMDD/
+        ├── YYYYMMDD_YYYYMMDD.geo.unw.tif
+        └── YYYYMMDD_YYYYMMDD.geo.cc.tif</code></pre>
+<table><thead><tr><th>产品</th><th>物理/技术含义</th><th>后续用途</th></tr></thead><tbody>
+<tr><td><code>*.geo.unw.tif</code></td><td>已解缠的干涉相位 GeoTIFF；相位不是直接的垂直位移。</td><td>相位差、形变时间序列反演</td></tr>
+<tr><td><code>*.geo.cc.tif</code></td><td>干涉相干性（coherence）栅格。</td><td>质量评价与低相干区筛选</td></tr>
+<tr><td><code>*.geo.E/N/U.tif</code></td><td>与雷达视线方向相关的东、北、上几何分量。</td><td>LOS 几何解释及分量转换</td></tr>
+<tr><td><code>*.geo.hgt.tif</code></td><td>高程/地形栅格（DEM 相关数据）。</td><td>地形信息及空间参照</td></tr>
+<tr><td><code>baselines</code></td><td>基线信息。</td><td>干涉网分析和诊断</td></tr>
+<tr><td><code>metadata.txt</code></td><td>Frame 元数据。</td><td>记录产品与几何属性</td></tr>
+</tbody></table>
+<div class="tip"><strong>科学解释：</strong>单轨 LOS 观测一般无法独立反演完整三维位移，且解缠相位可能包含大气延迟、轨道误差、地形残差等非形变信号。时间序列结果应当结合参考点、质量控制与误差评估使用。</div>
+<h2 id="validate">7. 数据检查与常见问题</h2>
+<p>完成下载后建议保留终端日志，并至少检查目录、数据数量和时间覆盖。以下 shell 命令可直接执行，不修改已下载文件：</p>
+<div class="code-label">Bash · audit</div><pre><code>pwd
+ls -lh GEOC | head
+find GEOC -name '*.geo.unw.tif' | wc -l
+find GEOC -name '*.geo.cc.tif' | wc -l
+find GEOC -maxdepth 1 -type f | sort</code></pre>
+<p>如果统计为零，应先核对 Frame ID、LiCSAR 数据服务可用性、日期过滤范围及下载日志，而不是直接进入 SBAS 反演。检查脚本也应确认在当前 shell 中可以被识别：</p>
+<div class="code-label">Bash · environment diagnostics</div><pre><code>command -v LiCSBAS01_get_geotiff.py
+conda info --envs
+python --version</code></pre>
+<p>若遇到远程下载失败，需要考虑 LiCSAR 服务端地址变动。COMET-LiCS Portal 官方已提示使用更新的代码；处理问题时应核对实际安装的脚本版本，而非直接假定网络错误等于 Frame 不存在。</p>
+<h2 id="limitations">8. 局限性与下一步</h2>
+<ul><li>本笔记仅覆盖安装与 Step 01 数据获取；尚未执行多视处理、干涉图质量筛选、闭环检验或 SBAS 时间序列反演。</li><li>数据可用性、下载成功率和空间覆盖与 LiCSAR 门户当前发布状态相关，本文不宣称已有该 Frame 的实际下载结果。</li><li>建议后续笔记继续介绍 LiCSBAS02 多视预处理、Step 11–12 质量控制和 Step 13 时间序列反演，并记录工作区域、参考点、时段与处理版本。</li></ul>
+<h2 id="references">9. References &amp; provenance</h2>
+<ol><li>Morishita, Y. <em>LiCSBAS2: InSAR time series analysis software</em>. <a href="https://github.com/yumorishita/LiCSBAS2" target="_blank" rel="noopener">Official GitHub repository</a> (installation and workflow).</li><li>LiCSBAS (original project). <a href="https://github.com/yumorishita/LiCSBAS/blob/master/bin/LiCSBAS01_get_geotiff.py" target="_blank" rel="noopener">Step 01 downloader documentation</a> (output conventions and command flags).</li><li>COMET-LiCS. <a href="https://cometarchive.leeds.ac.uk/COMET-LiCS-portal/" target="_blank" rel="noopener">LiCSAR data portal</a> (remote product availability).</li><li>LiCSBAS2 project. <a href="https://github.com/yumorishita/LiCSBAS2/blob/master/batch_LiCSBAS.sh" target="_blank" rel="noopener">Official batch workflow</a> (Step 01 onward).</li></ol>
+<p class="small"><strong>Version history.</strong> 2026-10-30 — First academic website adaptation from user-supplied installation and download commands; clarified date range and distinguished expected file layout from observed outputs.</p>
+</main><footer class="footer"><div class="wrap">© 2026 Chistrong Wen · Academic Research Notes · <a href="https://github.com/yumorishita/LiCSBAS2" target="_blank" rel="noopener">LiCSBAS2 repository ↗</a></div></footer><script>document.querySelectorAll('pre').forEach(pre=>{const box=document.createElement('div');box.className='code-wrap';pre.parentNode.insertBefore(box,pre);box.appendChild(pre);const b=document.createElement('button');b.className='copy-btn';b.type='button';b.textContent='Copy';b.setAttribute('aria-label','Copy code');box.appendChild(b);b.onclick=async()=>{try{await navigator.clipboard.writeText(pre.innerText);b.textContent='Copied';setTimeout(()=>b.textContent='Copy',1300)}catch{b.textContent='Select to copy'}}})</script></body></html>
