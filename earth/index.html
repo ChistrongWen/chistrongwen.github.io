@@ -8,16 +8,24 @@
 <header><div class="nav"><a class="brand" href="../index.html">Chistrong Wen</a><nav><a href="../index.html">Home</a><a href="../notes/">Research Notes</a><a href="../cv/">Academic CV</a></nav></div></header>
 <main><div class="heading"><div class="label">SCIENTIFIC VISUALIZATION</div><h1>Interactive Earth</h1><p>Explore the Earth and visualize geospatial research data on a rotating 3D globe.</p></div>
 <div class="workspace"><section class="stage" aria-label="Interactive globe"><div id="globe"></div><div id="tip" role="status">Drag to rotate · Scroll to zoom · Click for coordinates</div><div class="hud"><button id="rotateBtn" type="button">⏸ Pause rotation</button><button id="resetBtn" type="button">↻ Reset view</button></div></section>
-<aside class="panel"><h2>Data layers</h2><label for="layer">Visualization</label><select id="layer"><option value="earth">Earth base map</option><option value="data">Research data (CSV)</option></select>
-<div class="rule"></div><h2>Load your research data</h2><p>Choose a local CSV file with columns <code>lon,lat,value</code>. Values are colored on the globe; your file is processed in your browser and is not uploaded to a server.</p>
-<input id="file" type="file" accept=".csv,text/csv"><button id="clearBtn" class="secondary" type="button">Clear dataset</button>
+<aside class="panel"><h2>Data layers</h2><label for="layer">Visualization</label><select id="layer"><option value="earth">Earth base map</option><option value="gia_vlm">Caron 2018 · VLM mean</option>
+<option value="gia_vlm_std">Caron 2018 · VLM uncertainty</option>
+<option value="gia_geoid">Caron 2018 · Geoid rate mean</option>
+<option value="gia_geoid_std">Caron 2018 · Geoid rate uncertainty</option>
+<option value="gia_gravity">Caron 2018 · Gravity rate mean</option>
+<option value="gia_gravity_std">Caron 2018 · Gravity rate uncertainty</option>
+<option value="data">Custom research data (CSV)</option></select>
+<div class="rule"></div><h2>Caron 2018 GIA data</h2><p>Six original model fields are exported to <code>lon,lat,value</code> CSV files and hosted in <code>earth/data/</code>. Select a layer to load it automatically.</p>
+<a id="downloadCsv" class="download-button" href="data/gia_vlm.csv" download="gia_vlm.csv">↓ Download selected CSV</a>
+<div class="rule"></div><h2>Load your own research data</h2><p>Optional: choose a local CSV with <code>lon,lat,value</code>. Local files remain in your browser.</p>
+<input id="file" type="file" accept=".csv,text/csv">
 <label for="units">Display units</label><input id="units" value="mm/yr" maxlength="24" placeholder="e.g., mm/yr">
 <label for="title">Dataset name</label><input id="title" placeholder="e.g., Caron 2018 GIA VLM">
 <div id="summary" class="summary">No research dataset loaded.</div>
-<div id="legend" class="legend" hidden><div class="gradient"></div><div class="range"><span id="low"></span><span>0</span><span id="high"></span></div><div class="small">Blue: negative · Red: positive. Linear symmetric scale.</div></div>
-<div class="rule"></div><h2>Scientific notes</h2><p class="small">The geographic basemap shows land and ocean boundaries only. No GIA, GRACE, or GNSS field is assumed unless you load data. CSV sample points are displayed as colored markers—not interpolated global grids.</p>
+<div id="legend" class="legend" hidden><div class="gradient"></div><div class="range"><span id="low"></span><span>0</span><span id="high"></span></div><div class="small">Blue: negative · Red: positive.</div><div id="scaleInfo" class="small"></div></div>
+<div class="rule"></div><h2>Scientific notes</h2><p class="small">The geographic basemap shows land and ocean boundaries only. Caron et al. (2018) model values are loaded from the bundled CSV files. The visualization displays subsampled colored point markers—not an interpolated field or continuous raster. Gravity values retain the original source units (mm/yr WHE).</p>
 <a class="source" href="https://vesl.jpl.nasa.gov/solid-earth/gia/" target="_blank" rel="noopener">NASA/JPL GIA reference ↗</a><br><a class="source" href="https://doi.org/10.1002/2017GL076644" target="_blank" rel="noopener">Caron et al. (2018) ↗</a>
 </aside></div>
-<div class="footnote"><strong>Data format:</strong> Longitude −180 to 180° (0–360° also accepted), latitude −90 to 90°, value in the units you specify. Blank or malformed rows are skipped. Large datasets are subsampled for browser performance; this visualization does not replace scientific analysis.</div></main>
+<div class="footnote"><strong>Data format:</strong> Longitude −180 to 180° (0–360° also accepted), latitude −90 to 90°, value in the units you specify. Blank or malformed rows are skipped. The original 1°×1° source values are preserved in the downloadable CSV files, while the globe shows subsampled markers for rendering performance. The selected model field is not dynamically time-varying.</div></main>
 <footer>© <span id="year"></span> Chistrong Wen · Research visualization · GitHub Pages</footer>
 <script type="module" src="globe.js"></script></body></html>
