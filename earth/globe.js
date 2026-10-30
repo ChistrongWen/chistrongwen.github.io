@@ -7,9 +7,10 @@ camera.position.set(0,0,3.55);
 const renderer = new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:false});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;
 container.appendChild(renderer.domElement);
+renderer.domElement.addEventListener('webglcontextlost',event=>{event.preventDefault();document.getElementById('tip').textContent='WebGL graphics context lost. Reload this page to restore the globe.';});
 const controls = new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.065;controls.minDistance=1.55;controls.maxDistance=7;
 const root = new THREE.Group();scene.add(root);
-const texture=new THREE.TextureLoader().load('assets/earth-map.png',()=>render());texture.colorSpace=THREE.SRGBColorSpace;
+const texture=new THREE.TextureLoader().load('assets/earth-map.png');texture.colorSpace=THREE.SRGBColorSpace;
 const globe=new THREE.Mesh(new THREE.SphereGeometry(1,96,64),new THREE.MeshStandardMaterial({map:texture,roughness:1,metalness:0}));root.add(globe);
 root.add(new THREE.Mesh(new THREE.SphereGeometry(1.018,64,48),new THREE.MeshBasicMaterial({color:0x4aa4d5,transparent:true,opacity:.085,side:THREE.BackSide})));
 scene.add(new THREE.AmbientLight(0xffffff,1.7));const light=new THREE.DirectionalLight(0xffffff,1.7);light.position.set(3,2,5);scene.add(light);
@@ -34,7 +35,7 @@ function renderField(){
     const y=Math.min(179,Math.max(0,Math.round(90-d.lat)));
     const t=Math.max(-1,Math.min(1,d.value/limits));
     const col=(t<0?czer.clone().lerp(cneg,-t):czer.clone().lerp(cpos,t));
-    col.convertLinearToSRGB();const k=4*(y*360+x);img.data[k]=Math.round(col.r*255);img.data[k+1]=Math.round(col.g*255);img.data[k+2]=Math.round(col.b*255);img.data[k+3]=255;
+    const k=4*(y*360+x);img.data[k]=Math.round(col.r*255);img.data[k+1]=Math.round(col.g*255);img.data[k+2]=Math.round(col.b*255);img.data[k+3]=255;
   }
   ctx.putImageData(img,0,0);
   overlayTexture=new THREE.CanvasTexture(cvs);
@@ -72,12 +73,14 @@ async function selectLayer(key){
     const records=parseCSV(await response.text());
     if($('layer').value!==key)return;
     values=records; $('title').value=title;$('units').value=unit;
-    overlay.visible=true;renderField();
+    try { renderField(); } catch(error) { clearOverlay(); console.error('GIA render failed',error); $('summary').textContent='GIA rendering error: '+error.message; return; }
     $('summary').textContent=`${title}: ${values.length.toLocaleString()} grid points · ${values.length.toLocaleString()} rendered (1° grid; no subsampling). Source grid 1° × 1°.`;
-  }catch(err){$('summary').textContent='Unable to load preset CSV: '+err.message;}
+  }catch(err){clearOverlay();$('summary').textContent='Unable to load preset CSV: '+err.message;console.error('GIA layer load failed',err);}
 }
 $('layer').addEventListener('change',e=>selectLayer(e.target.value));
-$('layer').value='gia_vlm'; selectLayer('gia_vlm');
+// Load after the base globe has painted, so dataset errors cannot block the globe.
+$('layer').value='earth';
+setTimeout(()=>{ $('layer').value='gia_vlm'; selectLayer('gia_vlm'); },800);
 $('rotateBtn').onclick=()=>{running=!running;$('rotateBtn').textContent=running?'⏸ Pause rotation':'▶ Resume rotation';};
 $('resetBtn').onclick=()=>{camera.position.set(0,0,3.55);controls.target.set(0,0,0);root.rotation.set(0,0,0);controls.update();};
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();renderer.domElement.addEventListener('click',event=>{const rect=renderer.domElement.getBoundingClientRect();pointer.x=2*(event.clientX-rect.left)/rect.width-1;pointer.y=1-2*(event.clientY-rect.top)/rect.height;raycaster.setFromCamera(pointer,camera);let p=raycaster.intersectObject(globe)[0];if(!p)return;const local=root.worldToLocal(p.point.clone()).normalize();const lat=THREE.MathUtils.radToDeg(Math.asin(local.y));const lon=((THREE.MathUtils.radToDeg(Math.atan2(-local.x,-local.z))+540)%360)-180;let msg=`Lat ${lat.toFixed(2)}°, Lon ${lon.toFixed(2)}°`;if(values.length&&$('layer').value!=='earth'){const nearest=values.reduce((best,d)=>{const dl=((((d.lon-lon)+540)%360)-180)*Math.cos(lat*Math.PI/180);const dist=dl*dl+(d.lat-lat)**2;return dist<best.dist?{d,dist}:best},{dist:Infinity});if(Math.sqrt(nearest.dist)<5)msg+=` · Nearby sample ${nearest.d.value.toPrecision(4)} ${$('units').value}`;} $('tip').textContent=msg;});
