@@ -36,14 +36,18 @@
     for (const [id,key] of [['employment','employment'],['education','education'],['talks','talks'],['awards','awards']]) {
       replaceItems(id,'entries',cv[key],entry);
     }
-    replaceItems('publications','pubs',cv.publications, item => {
-      const li=document.createElement('li'); li.innerHTML=item.citation_html || ''; return li;
-    });
-    const review=document.querySelector('#under-review .wrap');
-    if (review && Array.isArray(reviews)) {
-      review.querySelectorAll(':scope > p').forEach(p=>p.remove());
-      reviews.forEach(item=>review.append(para(item)));
+    // Only the academic author name "Wen, Z." is bold; keep all other authors regular.
+    function formatCitation(source) {
+      return (source || '')
+        .replace(/^\s*<strong>([\s\S]*?)<\/strong>/i, '$1')
+        .replace(/Wen, Z\./g, '<strong>Wen, Z.</strong>');
     }
+    replaceItems('publications','pubs',cv.publications, item => {
+      const li=document.createElement('li'); li.innerHTML=formatCitation(item.citation_html); return li;
+    });
+    replaceItems('under-review','pubs',reviews,item => {
+      const li=document.createElement('li'); li.innerHTML=formatCitation(item.html); return li;
+    });
     const tags=document.querySelector('#interests .tags');
     if (tags && Array.isArray(cv.interests?.tags)) {
       tags.replaceChildren(...cv.interests.tags.map(value=>{
