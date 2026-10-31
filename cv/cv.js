@@ -14,7 +14,7 @@
     }
     // Prefer the exact key used in cv-data.json; retain legacy compatibility.
     const reviews = cv['under_review/in preparation'] ?? cv.under_review;
-    const expected = ['education','publications','talks','awards','teaching','outreach'];
+    const expected = ['employment','education','publications','talks','awards','teaching','outreach'];
     if (!Array.isArray(reviews)) throw new Error('Missing manuscripts array: under_review/in preparation');
     for (const key of expected) {
       if (!Array.isArray(cv[key])) throw new Error(`Missing or invalid array in cv-data.json: ${key}`);
@@ -33,7 +33,7 @@
     function para(item) {
       const p=document.createElement('p'); p.innerHTML=item.html || ''; return p;
     }
-    for (const [id,key] of [['education','education'],['talks','talks'],['awards','awards']]) {
+    for (const [id,key] of [['employment','employment'],['education','education'],['talks','talks'],['awards','awards']]) {
       replaceItems(id,'entries',cv[key],entry);
     }
     replaceItems('publications','pubs',cv.publications, item => {
