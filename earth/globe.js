@@ -21,37 +21,81 @@ let running=true,values=[],limits=1,overlayTexture=null,autoLimits=1,manualScale
 const overlay=new THREE.Mesh(new THREE.SphereGeometry(1.007,144,96),new THREE.MeshBasicMaterial({transparent:true,opacity:.92,depthWrite:false,side:THREE.FrontSide}));
 overlay.visible=false;root.add(overlay);
 const $=id=>document.getElementById(id);$('year').textContent=new Date().getFullYear();
-function heat(v,max){const t=Math.max(-1,Math.min(1,v/max));const neg=new THREE.Color('#244da1'),zero=new THREE.Color('#f3f4ed'),pos=new THREE.Color('#b32434');return (t<0?zero.clone().lerp(neg,-t):zero.clone().lerp(pos,t));}
+// Approximate web color ramps inspired by commonly used scientific CPTs.
+// The original polar endpoint/neutral colors are preserved as the default.
+const cptStops={
+  polar:[[0,'#244da1'],[.5,'#f3f4ed'],[1,'#b32434']],
+  seis:[[0,'#001a85'],[.25,'#4c8aca'],[.5,'#ffffff'],[.75,'#ef7b68'],[1,'#a50013']],
+  vik:[[0,'#001c48'],[.25,'#4f89a0'],[.5,'#efeee9'],[.75,'#c77f69'],[1,'#5c1525']],
+  viridis:[[0,'#440154'],[.25,'#3b528b'],[.5,'#21918c'],[.75,'#5ec962'],[1,'#fde725']],
+  turbo:[[0,'#30123b'],[.18,'#4669ed'],[.35,'#1ac7d6'],[.5,'#a5fc3c'],[.68,'#ffbf23'],[.85,'#f34b19'],[1,'#7a0403']],
+  jet:[[0,'#000080'],[.125,'#0000ff'],[.375,'#00ffff'],[.5,'#80ff80'],[.625,'#ffff00'],[.875,'#ff0000'],[1,'#800000']],
+  gray:[[0,'#222222'],[.5,'#919191'],[1,'#ffffff']]
+};
+const paletteCache=Object.fromEntries(Object.entries(cptStops).map(([key,stops])=>[key,stops.map(([v,hex])=>[v,[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16))])]));
+let activeCpt='polar';
+function paletteRGB(t){
+  const stops=paletteCache[activeCpt]||paletteCache.polar;
+  t=Math.max(0,Math.min(1,t));
+  let hi=1;while(hi<stops.length-1&&t>stops[hi][0])hi++;
+  const [a,ca]=stops[hi-1],[b,cb]=stops[hi];
+  const f=(t-a)/(b-a||1);
+  return [0,1,2].map(i=>Math.round(ca[i]+f*(cb[i]-ca[i])));
+}
+function updatePaletteLegend(){
+  const stops=cptStops[activeCpt]||cptStops.polar;
+  $('cptGradient').style.background='linear-gradient(to right,'+stops.map(([v,color])=>`${color} ${v*100}%`).join(',')+')';
+  $('cptCaption').textContent=['polar','seis','vik'].includes(activeCpt)?'Blue: negative · Red: positive.':'Colors progress from the low to high limits.';
+}
+
 function clearOverlay(){overlay.visible=false;overlay.material.map=null;if(overlayTexture){overlayTexture.dispose();overlayTexture=null;}overlay.material.needsUpdate=true;}
 function renderField(){
   clearOverlay();if(!values.length)return;
   const sorted=values.map(d=>Math.abs(d.value)).sort((a,b)=>a-b);
   autoLimits=Math.max(sorted[Math.floor(.98*(sorted.length-1))],1e-12);
   limits=autoLimits*manualScaleRatio;
-  // The original Caron field is 1°; altimetry grids are 0.25° or finer.
-  // Each source point colors its own raster cell without interpolation or sampling.
-  // Cap texture dimensions to avoid exceeding the GPU texture size on mobile.
+  // Render the native geographic grid as contiguous raster CELLS, not
+  // isolated rounded centre pixels. This prevents artificial dark meridian/
+  // parallel stripes at half-pixel coordinates (e.g., 0.25-degree centres).
+  // Missing ocean/land cells remain transparent; no interpolation is applied.
   const coordinateStep=(key)=>{
-    const u=Array.from(new Set(values.slice(0,Math.min(values.length,20000)).map(d=>Math.round(d[key]*10000)))).sort((a,b)=>a-b);
+    const u=Array.from(new Set(values.slice(0,Math.min(values.length,20000))
+      .map(d=>Math.round(d[key]*1000000)))).sort((a,b)=>a-b);
     let smallest=Infinity;
-    for(let i=1;i<u.length;i++){const delta=(u[i]-u[i-1])/10000;if(delta>0.00001&&delta<smallest)smallest=delta;}
+    for(let i=1;i<u.length;i++){
+      const delta=(u[i]-u[i-1])/1000000;
+      if(delta>1e-6 && delta<smallest)smallest=delta;
+    }
     return smallest;
   };
   const dx=coordinateStep('lon'),dy=coordinateStep('lat');
-  const gridStep=Math.max(360/4096,180/2048,Math.min(Number.isFinite(dx)?dx:1,Number.isFinite(dy)?dy:1));
-  const width=Math.max(360,Math.round(360/gridStep)),height=Math.max(180,Math.round(180/gridStep));
+  // Preserve native spacing for regular lat/lon grids (1°, 0.5°, 0.25°).
+  // The GPU cap is a rendering constraint, NOT a data transformation.
+  const gridStep=Math.max(360/4096,180/2048,
+    Math.min(Number.isFinite(dx)?dx:1,Number.isFinite(dy)?dy:1));
+  const width=Math.max(360,Math.round(360/gridStep));
+  const height=Math.max(180,Math.round(180/gridStep));
   const cvs=document.createElement('canvas');cvs.width=width;cvs.height=height;
-  const ctx=cvs.getContext('2d',{willReadFrequently:false});const img=ctx.createImageData(width,height);
-  const neg=[36,77,161],zer=[243,244,237],pos=[179,36,52];
+  const ctx=cvs.getContext('2d',{willReadFrequently:false});
+  const img=ctx.createImageData(width,height);
+  updatePaletteLegend();
+  const pixelX=360/width,pixelY=180/height;
   for(const d of values){
-    const x=((Math.round((d.lon+180)/360*width)%width)+width)%width;
-    const y=Math.min(height-1,Math.max(0,Math.round((90-d.lat)/180*height)));
-    const t=Math.max(-1,Math.min(1,d.value/limits));const w=Math.abs(t),base=t<0?neg:pos;
-    const k=4*(y*width+x);
-    img.data[k]=Math.round(zer[0]+(base[0]-zer[0])*w);
-    img.data[k+1]=Math.round(zer[1]+(base[1]-zer[1])*w);
-    img.data[k+2]=Math.round(zer[2]+(base[2]-zer[2])*w);
-    img.data[k+3]=255;
+    const [r,g,b]=paletteRGB(.5+.5*Math.max(-1,Math.min(1,d.value/limits)));
+    // Half-open source-cell footprint. Wrap longitude at the antimeridian.
+    const west=d.lon-(Number.isFinite(dx)?dx:pixelX)/2;
+    const east=d.lon+(Number.isFinite(dx)?dx:pixelX)/2;
+    const north=d.lat+(Number.isFinite(dy)?dy:pixelY)/2;
+    const south=d.lat-(Number.isFinite(dy)?dy:pixelY)/2;
+    const x0=Math.floor((west+180)/pixelX+1e-8);
+    const x1=Math.ceil((east+180)/pixelX-1e-8);
+    const y0=Math.max(0,Math.floor((90-north)/pixelY+1e-8));
+    const y1=Math.min(height,Math.ceil((90-south)/pixelY-1e-8));
+    for(let py=y0;py<y1;py++)for(let px=x0;px<x1;px++){
+      const xx=((px%width)+width)%width;
+      const k=4*(py*width+xx);
+      img.data[k]=r;img.data[k+1]=g;img.data[k+2]=b;img.data[k+3]=255;
+    }
   }
   ctx.putImageData(img,0,0);
   overlayTexture=new THREE.CanvasTexture(cvs);overlayTexture.colorSpace=THREE.SRGBColorSpace;
@@ -128,6 +172,8 @@ async function selectLayer(key){
   }catch(err){clearOverlay();$('summary').textContent='Unable to load CSV: '+err.message;console.error('GIA layer load failed',err);}
 }
 $('colorRange').addEventListener('input',event=>{manualScaleRatio=Number(event.target.value);if(values.length&&$('layer').value!=='earth')renderField();});
+$('cptSelect').addEventListener('change',event=>{activeCpt=event.target.value;updatePaletteLegend();if(values.length&&$('layer').value!=='earth')renderField();});
+updatePaletteLegend();
 $('layer').addEventListener('change',e=>selectLayer(e.target.value));
 // Load after the base globe has painted, so dataset errors cannot block the globe.
 $('layer').value='earth';

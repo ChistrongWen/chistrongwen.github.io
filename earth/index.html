@@ -22,7 +22,17 @@
 <label for="units">Display units</label><input id="units" value="mm/yr" maxlength="24" placeholder="e.g., mm/yr">
 <label for="title">Dataset name</label><input id="title" placeholder="e.g., Caron 2018 GIA VLM">
 <div id="summary" class="summary">No research dataset loaded.</div>
-<div id="legend" class="legend" hidden><div class="gradient"></div><div class="range"><span id="low"></span><span>0</span><span id="high"></span></div><div class="small">Blue: negative · Red: positive.</div><div id="scaleInfo" class="small"></div>
+<div id="legend" class="legend" hidden><div id="cptGradient" class="gradient"></div><div class="range"><span id="low"></span><span>0</span><span id="high"></span></div><div id="cptCaption" class="small">Blue: negative · Red: positive.</div><div id="scaleInfo" class="small"></div>
+<label for="cptSelect" style="display:block;margin-top:13px">Color palette (CPT)</label>
+<select id="cptSelect" aria-label="Choose scientific color palette">
+<option value="polar">Polar (default)</option>
+<option value="seis">Seis</option>
+<option value="vik">Vik (approx.)</option>
+<option value="viridis">Viridis</option>
+<option value="turbo">Turbo</option>
+<option value="jet">Jet</option>
+<option value="gray">Gray</option>
+</select>
 <label for="colorRange" style="display:block;margin-top:13px">Color range · drag slider</label>
 <input id="colorRange" type="range" min="0.1" max="3" value="1" step="0.05" style="width:100%;cursor:pointer" aria-label="Adjust symmetric color scale range">
 <div class="small">Scale limits: ±<span id="scaleLimit">—</span></div></div>
@@ -42,4 +52,4 @@ setTimeout(()=>{
   }
 },6000);
 </script>
-<script type="module" src="globe.js?v=coast-slider-autocsv-2"></script></body></html>
+<script type="module" src="globe.js?v=raster-cpt-20261031"></script></body></html>
