@@ -1,0 +1,96 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GIA 测高校正与 CM/CF 参考框架 | Chistrong Wen</title><meta name="description" content="GIA 输出 dSea、dRad、dGeoid 的区别，卫星测高校正与 CM/CF 转换，附交互地球与 CSV 查看器。"><link rel="stylesheet" href="style.css"><script defer src="../assets/analytics.js"></script><style>.note{max-width:940px}.note p,.note li{line-height:1.95}.box{padding:18px 22px;background:#edf5fb;border-left:4px solid #1468a0;border-radius:6px;margin:22px 0}.warn{background:#fff7e8;border-color:#c79028}table{border-collapse:collapse;width:100%;font-size:.93rem}td,th{padding:12px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}th{background:#f1f6fa}.scroll{overflow:auto}.eq{padding:16px;background:#f3f7fa;overflow:auto;font-family:ui-monospace,monospace;white-space:pre-wrap}.earth{background:#0c2033;color:#e8f4ff;padding:22px;border-radius:16px}.earth p{color:#c7d9e9}.earth canvas{display:block;width:100%;height:480px;touch-action:none;cursor:grab}.earth label{display:inline-block;margin:7px 12px 7px 0}.earth input,.earth select,.earth button{font:inherit;max-width:100%;border:1px solid #7593aa;border-radius:5px;padding:5px}.earth input[type=number]{width:84px}.legend{height:12px;background:linear-gradient(90deg,#2166ac,#f7f7f7,#b2182b);border-radius:5px}.ends{display:flex;justify-content:space-between;font-size:.85rem}.small{font-size:.88rem;color:#63778b}h2{scroll-margin-top:100px}button{cursor:pointer}@media(max-width:600px){.earth{padding:12px}.earth canvas{height:350px}}</style></head><body>
+<header><nav class="wrap nav"><a class="brand" href="../index.html">Chistrong Wen</a><div class="links"><a href="../index.html">Home</a><a href="../index.html#research">Research</a><a class="active" href="index.html">Research Notes</a><a href="../index.html#publications">Publications</a></div></nav></header>
+<div class="hero"><div class="wrap"><div class="eyebrow">RESEARCH NOTE · SEA LEVEL · GIA · REFERENCE FRAMES</div><h1>GIA 的哪些输出可以修正卫星测高？</h1><p>dSea、dRad、dGeoid 的物理意义，以及 CM / CF 参考框架转换</p><div class="note-meta">Chistrong Wen · 2026-11-01 · Methods &amp; Interactive Explorer · 中文</div></div></div>
+<main class="wrap note"><a class="back" href="index.html">← 返回 Research Notes</a>
+<div class="box"><strong>核心结论：</strong>若目标是移除海洋卫星测高中的 GIA 信号，应减去<strong>与观测参考框架一致的 GIA 地心海面变化率</strong>。Peltier 系列中，与其定义相符的 <code>dGeoid</code> 可用于这一目的；也可由同一模型、版本、框架下的 <code>dSea + dRad</code> 重建。<code>dRad</code> 单独表示固体地表运动，<code>dSea</code> 表示相对海平面，二者都不能单独代替地心海面校正。[1–4]</div>
+<div class="toc"><strong>Contents / 目录</strong><ol><li><a href="#outputs">GIA 输出与对应观测量</a></li><li><a href="#altimetry">测高校正与符号</a></li><li><a href="#frames">CM / CF 转换与一阶项</a></li><li><a href="#globe">交互地球：参考框架与数据查看</a></li><li><a href="#workflow">区域海平面预算工作流</a></li><li><a href="#limits">易混概念与适用范围</a></li><li><a href="#references">参考文献</a></li></ol></div>
+<h2 id="outputs">1. GIA 有几个输出？先区分三个核心场</h2>
+<p>GIA（冰川均衡调整）是地球对过去冰盖和海洋负荷变化的持续响应。它同时改变固体地表、重力场及海面，因此不存在一个可修正所有观测的通用“GIA 值”。Peltier 数据页还提供水平速度、Stokes 趋势系数以及古地形和冰厚；这些产品对应不同物理量。[1]</p>
+<div class="scroll"><table><thead><tr><th>输出</th><th>本文符号与定义</th><th>适用观测或用途</th></tr></thead><tbody>
+<tr><td><code>dRad / drad</code></td><td>U̇：固体地表径向位移率，向上为正</td><td>GNSS 垂向速度；海底或湖底几何变化</td></tr>
+<tr><td><code>dSea / dsea / drsl</code></td><td>Ṡ：相对海平面变化率，海面减固体地表</td><td>验潮仪相对海平面的 GIA 信号</td></tr>
+<tr><td><code>dGeoid</code>（按产品定义）</td><td>η̇：GIA 地心海面变化率；需核对是否包含海平面方程的空间常数</td><td>海洋卫星测高的 GIA 信号</td></tr>
+<tr><td><code>Hvel / GS_vels</code></td><td>水平速度或三维速度</td><td>GNSS / 地壳运动验证</td></tr>
+<tr><td>Stokes trend coefficients</td><td>重力势球谐系数变化率</td><td>GRACE / GRACE-FO 重力场 GIA 改正；不能直接当作 SSH 或位移</td></tr>
+<tr><td>Topo、ice thickness、ice mask</td><td>古地形、冰厚与空间掩膜</td><td>负荷历史和边界条件，通常不是现代变化率</td></tr></tbody></table></div>
+<p>在相同时间、位置及参考框架 F 中，几何关系始终为：</p><div class="eq">Ṡ = η̇ᶠ − U̇ᶠ
+η̇ᶠ = Ṡ + U̇ᶠ</div>
+<p>Peltier 相关论文明确以 <code>dGeoid = dSea + dRad</code> 表示这些输出的关系。[2] 但一般海平面方程中的“海面变化”和“重力等位面变化”可能相差一个为满足质量守恒而确定的空间常数。因此不能把任意软件输出的 Φ̇/g 无条件当成完整 η̇。[3,4]</p>
+<div class="box warn"><strong>版本必须成套：</strong>数据页分别列有 ICE-6G_C 的 dsea / drad，以及 ICE-6G_D 的 drad / Hvel；不要仅因文件名类似就跨版本相加。ICE-5G、ICE-6G、不同阶数和不同旋转反馈设置也应分别处理。[1]</div>
+<h2 id="altimetry">2. 哪一个修正测高？减去“模型信号”</h2>
+<p>设卫星测高给出的海面高度趋势为 η̇<sub>obs</sub>。对海洋测高，若研究目标是移除 GIA，则：</p>
+<div class="eq">η̇corrected = η̇obs − η̇GIA
+           = η̇obs − (dSea + dRad)   [同版本、同框架]
+
+ηcorrected(t) = ηobs(t) − η̇GIA · (t − t₀)</div>
+<p>最后一式适用于研究时段内将 GIA 近似为常速的情况；t 用年、模型率用 mm/yr，则高度项为 mm。SLA 已去除平均海面并不意味着已经去除 GIA 趋势。应检查具体测高产品和发布版本的处理记录，避免重复改正。</p>
+<p><strong>符号示例（纯算术示例，不是区域模型结果）：</strong>若 dSea = +0.20、dRad = −0.50 mm/yr，则 η̇<sub>GIA</sub> = −0.30 mm/yr；观测趋势为 +5.50 mm/yr 时，扣除 GIA 后为 +5.80 mm/yr。“加上校正项 +0.30”与“减去模型信号 −0.30”是同一操作。</p>
+<p>对于验潮仪，应从相对海平面趋势中扣除 Ṡ<sub>GIA</sub>；若已经用 GNSS 将验潮仪转换为地心海面，则应按地心观测处理。全球平均 GIA 改正不能直接替代北太平洋或其他区域的空间平均改正。[3,5]</p>
+<h2 id="frames">3. CM 与 CF：统一原点，再相加和相减</h2>
+<p><strong>CM</strong> 为整个地球系统的质心；<strong>CF</strong> 为固体地球表面的形状中心。卫星测高海面高度的参考框架由轨道和地面跟踪系统实现，通常按地心框架解释；实际产品仍需核对轨道、参考框架版本与原点约定。不能只凭“卫星数据”或“ITRF”几个字推断所有时间尺度的一阶项处理。[4,6]</p>
+<p>下面明确规定向量 <strong>a(t) = O<sub>CF</sub>(t) − O<sub>CM</sub>(t)</strong>，即从 CM 指向 CF；r̂ 为当地径向单位向量。在小位移、仅平移、相同轴向与尺度的近似下：</p>
+<div class="eq">xCF = xCM − a
+q̇(λ,φ) = ȧ · r̂
+       = ȧx cosφ cosλ + ȧy cosφ sinλ + ȧz sinφ
+
+η̇CF = η̇CM − q̇
+U̇CF = U̇CM − q̇
+ṠCF = η̇CF − U̇CF = η̇CM − U̇CM = ṠCM
+
+反向转换：η̇CM = η̇CF + q̇；U̇CM = U̇CF + q̇</div>
+<p>这是坐标平移对径向量的一阶投影，会形成球面偶极子（degree 1）图样。它改变 η̇ 和 U̇ 的表达，但不改变两者之差 Ṡ。不同文献若定义“CM 相对 CF”的向量，公式符号会反过来；必须先写出向量定义，再使用数值。[4,6]</p>
+<div class="box warn"><strong>不能把 GRACE degree-1 addback 当作通用 CM→CF 按钮。</strong>GRACE 一阶系数补充涉及所选系数约定、归一化和负荷响应；本文 ȧ 是明确的原点平移速度。转换需要与模型相容的一阶项或原点关系，不能随意采用另一产品的季节地心运动或对有限台站的平均速度代替。若模型框架未确认，应保留“未知”，而非自动标为 CM。</div>
+<p>上式只处理原点平移；完整参考框架实现还可能涉及旋转、尺度、历元与台站形变。静态原点偏移主要改变高度零点；趋势变换需要 ȧ，时间序列变换则需要 a(t)。</p>
+<h2 id="globe">4. 交互地球 · CM / CF Explorer</h2>
+<p>默认地球显示<strong>解析参考框架演示场</strong>，不代表 ICE-5G / ICE-6G 结果。拖动旋转、滚轮缩放；“北太平洋”按钮定位视角。可导入真实 GIA 网格 CSV，查看 η̇、U̇ 和 Ṡ，并检验转换后的差值。</p>
+<div class="earth"><label>数据 <input id="file" type="file" accept=".csv,text/csv"></label><button id="demo" type="button">恢复解析演示</button><br>
+<label>场 <select id="field"><option value="eta">η̇ 海面</option><option value="u">U̇ 固体地表</option><option value="s">Ṡ 相对海平面</option><option value="q">q̇ 原点平移投影</option></select></label>
+<label>CSV 输入框架 <select id="source"><option>CM</option><option>CF</option></select></label><label>显示框架 <select id="target"><option>CM</option><option>CF</option></select></label><br>
+<label>ȧx <input id="ax" type="number" value="0.3" step="0.1"></label><label>ȧy <input id="ay" type="number" value="-0.2" step="0.1"></label><label>ȧz <input id="az" type="number" value="0.1" step="0.1"></label><span>mm/yr · 示例值，可修改</span><br>
+<label>色标 ± <input id="range" type="number" value="1" min="0.01" step="0.1"> mm/yr</label><button id="pacific" type="button">北太平洋</button><button id="reset" type="button">重置视角</button>
+<canvas id="globe" aria-label="可拖动旋转和滚轮缩放的球面数据图" tabindex="0"></canvas>
+<div class="legend"></div><div class="ends"><span id="lo">−1 mm/yr</span><span>0</span><span id="hi">+1 mm/yr</span></div>
+<p id="status" role="status" aria-live="polite"></p><p id="probe">点击球面查看最近数据点。键盘方向键可旋转，+ / − 可缩放。</p></div>
+<p class="small">CSV 表头必须为 <code>lon,lat,dsea_mm_yr,drad_mm_yr</code>，单位均为 mm/yr；每行一个点，UTF-8、逗号分隔。程序计算 η̇ = dsea + drad。CSV 原点框架和 ȧ 由用户指定；没有可信的原点转换参数时，请保持输入与显示框架相同。数据仅在浏览器本地读取。图中为点值显示，不作插值，也不提供海陆掩膜或区域平均。</p>
+<details><summary>演示场与验证方式</summary><p>演示基准为 CM：η̇ = 0、U̇ = 0、Ṡ = 0；选择显示 CF 后，η̇ 和 U̇ 均变为 −q̇，Ṡ 仍为零。此设计只演示参考框架效应，没有模拟真实 GIA。CSV 模式则用导入的 Ṡ、U̇ 构造完整场；状态栏报告 max|η̇ − U̇ − Ṡ| 的数值闭合误差。</p></details>
+<h2 id="workflow">5. 区域海平面预算中的可复现步骤</h2>
+<ol><li><strong>保存元数据：</strong>模型、冰历史、黏度模型、版本、参考框架、旋转反馈、球谐截断阶数、变量单位及数据来源。</li><li><strong>检查物理量：</strong>用变量属性确认 dSea 是否为相对海平面、dRad 是否向上为正、dGeoid 是否对应完整海面响应。先检验 η̇ − U̇ − Ṡ，再作校正。</li><li><strong>统一框架：</strong>将 η̇、U̇ 转为观测所用框架；Ṡ 对一致的原点平移不变。不确定模型框架时，不猜测转换。</li><li><strong>统一区域：</strong>使用与测高相同的海洋有效掩膜和面积权重。在经纬度规则网格上用实际网格面积，或适当采用 cosφ 权重。经度范围与边界必须一致。</li><li><strong>统一时间：</strong>北太平洋分析沿用 2005-01 至 2024-12，共同有效月份，不插补缺月；固定 GIA 趋势按共同参考历元展开。</li><li><strong>逐项记账：</strong>分别记录测高的 GIA 海面改正、GRACE 已移除的 GIA 重力改正、当代弹性海底形变及地震项，避免将不同物理量作为同一项重复扣除。</li></ol>
+<div class="eq">区域面积平均：⟨η̇GIA⟩ = Σ Ai Mi η̇GIA,i / Σ Ai Mi
+测高趋势改正：⟨η̇obs⟩ − ⟨η̇GIA⟩
+
+Mi：共同有效掩膜；Ai：格点面积。</div>
+<p>区域预算若将测高的地心海面高度与质量 / 比容导致的水柱厚度变化比较，还需要一致地处理海底运动。仅扣除 GIA 海面响应，并不自动完成所有当代海底形变改正。GIA 重力信号的 EWH 趋势也不等于 GIA 的 dRad 或 dGeoid。</p>
+<h2 id="limits">6. 适用范围与常见误区</h2>
+<ul><li><strong>这里的测高主要指海洋海面高度。</strong>冰面、陆面或湖面测高的目标物理量不同；冰厚与湖泊体积变化可能需处理基底运动，但不能直接套用海洋 dGeoid 改正。</li><li><strong>GIA 与当代冰川退缩的黏弹性响应需区分。</strong>若区域模型已包含部分同一负荷历史，两者相加前应核对是否重叠。</li><li><strong>模型版本差异不是统计标准误。</strong>需要用合理的冰历史 / 地球模型集合评估结构不确定性；区域模型误差有空间相关性。</li><li><strong>全球平均与区域信号不同。</strong>全球面积积分中抵消的一阶项，在北太平洋这类有限区域仍可能影响平均值。</li></ul>
+<h2 id="references">7. 参考文献与数据入口</h2>
+<ol><li><a href="https://www.atmosp.physics.utoronto.ca/~peltier/data.php">W. R. Peltier — Datasets</a>：变量目录、版本和下载入口。使用具体数据时按该页面要求引用相应模型论文。</li>
+<li>Toscano, M. A., Peltier, W. R., &amp; Drummond, R. (2011). <a href="https://doi.org/10.1016/j.quascirev.2011.07.018">ICE-5G and ICE-6G models of postglacial relative sea-level history applied to the Holocene coral reef record of northeastern St Croix, U.S.V.I.</a> <em>Quaternary Science Reviews</em>, 30, 3032–3042. Fig. 1 说明 dSea、dRad 和 dGeoid 的关系。</li>
+<li>Spada, G., &amp; Melini, D. (2019). <a href="https://doi.org/10.5194/gmd-12-5055-2019">SELEN4: a Fortran program for solving the gravitationally and topographically self-consistent sea-level equation in glacial isostatic adjustment modeling</a>. <em>Geoscientific Model Development</em>, 12, 5055–5075. 海面、重力等位面与质量守恒常数。</li>
+<li>Adhikari, S., et al. (2019). <a href="https://doi.org/10.5194/essd-11-629-2019">Sea-level fingerprints emergent from GRACE mission data</a>. <em>Earth System Science Data</em>, 11, 629–646. CM / CF 与海面、地表及相对海平面定义。</li>
+<li>Gregory, J. M., et al. (2019). <a href="https://doi.org/10.1007/s10712-019-09525-z">Concepts and Terminology for Sea Level: Mean, Variability and Change, Both Local and Global</a>. <em>Surveys in Geophysics</em>, 40, 1251–1289.</li>
+<li>Desai, S. D., et al. (2014). <a href="https://doi.org/10.1002/2014GL059614">Consideration of tidal variations in the geocenter on satellite altimeter observations of ocean tides</a>. <em>Geophysical Research Letters</em>. 说明轨道框架与地心运动问题；其潮汐数值不能直接用作长期 GIA 转换参数。</li></ol>
+<p class="small">Version 1.0 · 2026-11-01。本文给出方法与解析交互演示；未附带已验证的 Peltier 数值网格。所有模型数值结论须以实际下载文件及元数据为准。</p><a href="index.html">← 返回 Research Notes</a></main><footer class="footer"><div class="wrap">© 2026 Chistrong Wen · Academic Research Notes</div></footer>
+<script>
+'use strict';
+const $=id=>document.getElementById(id),cv=$('globe'),ctx=cv.getContext('2d'),rad=Math.PI/180;
+let yaw=160,pitch=30,zoom=1,rows=[],imported=false,drag=null,moved=false,visible=[];
+function q(lon,lat){const l=lon*rad,p=lat*rad;return +$('ax').value*Math.cos(p)*Math.cos(l)+ +$('ay').value*Math.cos(p)*Math.sin(l)+ +$('az').value*Math.sin(p)}
+function values(r){const shift=$('source').value===$('target').value?0:($('source').value==='CM'?-1:1)*q(r.lon,r.lat);return {eta:r.s+r.u+shift,u:r.u+shift,s:r.s,q:q(r.lon,r.lat)}}
+function demo(){rows=[];for(let lat=-87;lat<=87;lat+=3)for(let lon=-180;lon<180;lon+=3)rows.push({lon,lat,s:0,u:0});imported=false;$('source').value='CM';draw()}
+function project(lon,lat,w,h){const l=(lon-yaw)*rad,p=lat*rad,t=pitch*rad,x=Math.cos(p)*Math.sin(l),y=Math.sin(p)*Math.cos(t)-Math.cos(p)*Math.cos(l)*Math.sin(t),z=Math.sin(p)*Math.sin(t)+Math.cos(p)*Math.cos(l)*Math.cos(t),R=Math.min(w,h)*.43*zoom;return {x:w/2+R*x,y:h/2-R*y,z}}
+function color(v,m){const t=Math.min(1,Math.abs(v)/m),a=v<0?[33,102,172]:[178,24,43];return 'rgb('+a.map(n=>Math.round(247+(n-247)*t)).join(',')+')'}
+function draw(){const w=cv.clientWidth,h=cv.clientHeight,d=window.devicePixelRatio||1;cv.width=w*d;cv.height=h*d;ctx.setTransform(d,0,0,d,0,0);ctx.clearRect(0,0,w,h);const R=Math.min(w,h)*.43*zoom;ctx.save();ctx.beginPath();ctx.arc(w/2,h/2,R,0,7);ctx.fillStyle='#163b55';ctx.fill();ctx.clip();visible=[];let err=0;const m=Math.max(.01,Number($('range').value)||1);for(const r of rows){const p=project(r.lon,r.lat,w,h),v=values(r);err=Math.max(err,Math.abs(v.eta-v.u-v.s));if(p.z<=0)continue;ctx.fillStyle=color(v[$('field').value],m);const size=imported?2.4:Math.max(2,R*.029);ctx.fillRect(p.x-size/2,p.y-size/2,size,size);visible.push({p,r,v})}
+ctx.strokeStyle='#83a7be66';ctx.lineWidth=.65;function line(points){ctx.beginPath();let pen=false;for(const a of points){const p=project(a[0],a[1],w,h);if(p.z>0){if(pen)ctx.lineTo(p.x,p.y);else ctx.moveTo(p.x,p.y);pen=true}else pen=false}ctx.stroke()}
+for(let lat=-60;lat<=60;lat+=30){let a=[];for(let l=-180;l<=180;l+=2)a.push([l,lat]);line(a)}for(let lon=-180;lon<180;lon+=30){let a=[];for(let p=-90;p<=90;p+=2)a.push([lon,p]);line(a)}
+ctx.restore();ctx.strokeStyle='#92bed2';ctx.beginPath();ctx.arc(w/2,h/2,R,0,7);ctx.stroke();ctx.font='12px sans-serif';ctx.fillStyle='#fff';for(const [name,l,p] of [['北太平洋',190,40],['Greenland',-42,72],['Antarctica',0,-80],['Asia',100,40]]){const a=project(l,p,w,h);if(a.z>0)ctx.fillText(name,a.x,a.y)}
+$('lo').textContent='−'+m+' mm/yr';$('hi').textContent='+'+m+' mm/yr';$('status').textContent=(imported?'已导入真实数据（来源由导入者确认）':'解析框架演示 · 非 GIA 模型')+' | '+rows.length+' 点 | '+$('source').value+' → '+$('target').value+' | 最大闭合误差 '+err.toExponential(2)+' mm/yr'}
+$('file').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;const lines=(await f.text()).replace(/^\uFEFF/,'').trim().split(/\r?\n/),head=lines.shift().split(',').map(s=>s.trim()),names=['lon','lat','dsea_mm_yr','drad_mm_yr'],ix=names.map(n=>head.indexOf(n));if(ix.some(i=>i<0))throw Error('缺少表头：'+names.join(','));let data=[];for(const [i,line] of lines.entries()){if(!line.trim())continue;const cells=line.split(','),a=ix.map(j=>cells[j]===undefined||cells[j].trim()===''?NaN:Number(cells[j]));if(a.some(x=>!Number.isFinite(x))||Math.abs(a[1])>90)throw Error('第 '+(i+2)+' 行存在无效值');data.push({lon:((a[0]+180)%360+360)%360-180,lat:a[1],s:a[2],u:a[3]})}if(!data.length)throw Error('没有有效数据');if(data.length>200000)throw Error('请先将网格降采样至不超过 200000 点');rows=data;imported=true;$('probe').textContent='导入完成；请核对输入框架与原点参数。';draw()}catch(err){$('probe').textContent='导入失败：'+err.message}finally{e.target.value=''}};
+for(const id of ['field','source','target','ax','ay','az','range'])$(id).addEventListener('input',draw);
+$('demo').onclick=demo;$('pacific').onclick=()=>{yaw=190;pitch=40;zoom=1;draw()};$('reset').onclick=()=>{yaw=160;pitch=30;zoom=1;draw()};
+cv.onpointerdown=e=>{drag={x:e.clientX,y:e.clientY};moved=false;cv.setPointerCapture(e.pointerId)};
+cv.onpointermove=e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>1)moved=true;yaw-=dx*.4;pitch=Math.max(-89,Math.min(89,pitch+dy*.4));drag={x:e.clientX,y:e.clientY};draw()};
+cv.onpointerup=e=>{drag=null;if(moved)return;const b=cv.getBoundingClientRect(),x=e.clientX-b.left,y=e.clientY-b.top;let best=null,d=144;for(const a of visible){const dd=(a.p.x-x)**2+(a.p.y-y)**2;if(dd<d){best=a;d=dd}}if(best){const {r,v}=best;$('probe').textContent='最近点 '+r.lon.toFixed(2)+'°, '+r.lat.toFixed(2)+'° | η̇ '+v.eta.toFixed(4)+' | U̇ '+v.u.toFixed(4)+' | Ṡ '+v.s.toFixed(4)+' | q̇ '+v.q.toFixed(4)+' mm/yr'}};
+cv.onpointercancel=()=>{drag=null};cv.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.6,Math.min(1.5,zoom*(e.deltaY>0?.95:1.05)));draw()},{passive:false});
+cv.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','+','-','='].includes(e.key))return;e.preventDefault();if(e.key==='ArrowLeft')yaw-=5;if(e.key==='ArrowRight')yaw+=5;if(e.key==='ArrowUp')pitch=Math.min(89,pitch+5);if(e.key==='ArrowDown')pitch=Math.max(-89,pitch-5);if(e.key==='+'||e.key==='=')zoom=Math.min(1.5,zoom+.1);if(e.key==='-')zoom=Math.max(.6,zoom-.1);draw()};
+new ResizeObserver(draw).observe(cv);demo();
+</script></body></html>
