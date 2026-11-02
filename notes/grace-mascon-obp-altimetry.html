@@ -1,0 +1,58 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GRACE Mascon OBP 与测高海平面预算 | Chistrong Wen</title><meta name="description" content="GRACE/GRACE-FO Mascon OBP与SLA产品下载、海洋质量海平面转换、气压与GIA改正、北太平洋研究MATLAB案例"><link rel="stylesheet" href="style.css"><script defer src="../assets/analytics.js"></script><style>.note{max-width:940px}.note p,.note li{line-height:1.9}.box{padding:18px 22px;background:#edf5fb;border-left:4px solid #1468a0;border-radius:6px;margin:22px 0}.warn{background:#fff7e8;border-color:#c79028}table{border-collapse:collapse;width:100%;font-size:.92rem}td,th{padding:11px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}th{background:#f1f6fa}.scroll{overflow:auto}.eq{padding:16px;background:#f3f7fa;overflow:auto;font-family:ui-monospace,monospace;white-space:pre-wrap}pre{padding:16px;background:#12243a;color:#eff8ff;overflow:auto;border-radius:8px;line-height:1.65;font-size:.88rem}code{overflow-wrap:anywhere}.small{font-size:.88rem;color:#63778b}h2{scroll-margin-top:100px}</style></head><body>
+<header><nav class="wrap nav"><a class="brand" href="../index.html">Chistrong Wen</a><div class="links"><a href="../index.html">Home</a><a href="../index.html#research">Research</a><a class="active" href="index.html">Research Notes</a><a href="../index.html#publications">Publications</a></div></nav></header>
+<div class="hero"><div class="wrap"><div class="eyebrow">RESEARCH NOTE · GRACE / GRACE-FO · MASCON · OCEAN BOTTOM PRESSURE</div><h1>GRACE Mascon 的 OBP 如何与卫星测高比较？</h1><p>产品下载、海洋底压与质量海平面的转换、参考框架以及可复现 MATLAB 流程</p><div class="note-meta">Chistrong Wen · 2026-11-02 · Data &amp; Methods · 中文</div></div></div>
+<main class="wrap note"><a class="back" href="index.html">← 返回 Research Notes</a>
+<div class="box"><strong>核心结论：</strong>GRACE Mascon中的海洋底压（OBP）/等效水厚（EWH）<strong>不等于</strong>卫星测高观测到的总海面高度（SSH）。用于海平面预算时，需确认产品是否包含大气质量项、是否已完成GIA/同震处理，并把<strong>淡水EWH转换为相应的海水等效厚度</strong>，以匹配 altimetry − steric 的质量分量；海底垂直运动还需单独保持一致的物理记账。</div>
+<div class="toc"><strong>Contents / 目录</strong><ol><li><a href="#physics">物理量：OBP、EWH与海面高度</a></li><li><a href="#downloads">主要Mascon产品及下载入口</a></li><li><a href="#conversion">从OBP到海洋质量海平面</a></li><li><a href="#gsfc">GSFC OBP与SLA并不相同</a></li><li><a href="#workflow">北太平洋预算统一流程</a></li><li><a href="#matlab">MATLAB计算与输入约定</a></li><li><a href="#checks">误区与验证清单</a></li><li><a href="#references">官方资料与参考文献</a></li></ol></div>
+<h2 id="physics">1. 先区分三种物理量</h2>
+<p><strong>OBP</strong>（ocean bottom pressure）是海底承受的水柱及表面大气压力变化；GRACE海洋Mascon通常通过重力质量变化表示为水厚度，数值为<strong>等效水厚 EWH</strong>。<strong>SSH</strong>是测高卫星参考地心框架的海面几何高度，包含海洋质量、温盐密度及海底/重力变化等影响。两者不能简单视为同一观测。</p>
+<div class="eq">Δp_b ≈ g·Δm/A + Δp_atm    [简化静水近似；实际产品可能已做背景改正]
+EWH_fresh = (Δm/A) / ρ_f,    ρ_f = 1000 kg m⁻³
+mass-equivalent sea-water height = EWH_fresh · (ρ_f / ρ_sw)
+通常示例取 ρ_sw = 1025 kg m⁻³；真正计算须声明密度约定。</div>
+<p>若原文件以 cm EWH 表示：<strong>mm sea-water equivalent = cm EWH × 10 × (1000/1025)</strong>。系数为约0.97561（从mm淡水EWH转换为mm海水等效厚度）。如原数据是压力Pa，须先按已确认的大气校正约定处理，再以 <code>Δp/(g·ρ_sw)</code> 转换；不要把单位本已是EWH的产品再除以重力加速度。</p>
+<div class="box warn"><strong>重要：</strong>上述厚度仅是<strong>海洋质量项的局地等效厚度</strong>，不是完整地心SSH。在动态海洋和有海底形变的区域，还需确保底压、大气、海水密度、负荷响应和测高改正一致。改变单位并不能自动解决海平面预算。</div>
+<h2 id="downloads">2. CSR、JPL、GSFC、GFZ：具体下载什么？</h2>
+<div class="scroll"><table><thead><tr><th>中心 / 产品</th><th>数据入口</th><th>对区域质量预算的提示</th></tr></thead><tbody>
+<tr><td><strong>NASA GSFC RL06v2.0</strong><br>OBP-ICE6GD、SLA-ICE6GD</td><td><a href="https://earth.gsfc.nasa.gov/geo/data/grace-mascons" target="_blank" rel="noopener">GSFC官方Mascon下载页</a></td><td>有明确的OBP和SLA两种产品；相同版本、时段、改正约定下选合适产品，不可直接混合。</td></tr>
+<tr><td><strong>NASA JPL Mascon</strong><br>RL06.3M v04 CRI</td><td><a href="https://podaac.jpl.nasa.gov/dataset/TELLUS_GRAC-GRFO_MASCON_CRI_GRID_RL06.3_V4" target="_blank" rel="noopener">PO.DAAC数据集</a></td><td>网格单位一般为cm EWH；查阅GAD、大气恢复及海陆泄漏说明，沿海优先考虑CRI方案。</td></tr>
+<tr><td><strong>UT CSR RL06.2 Mascons</strong></td><td><a href="https://www2.csr.utexas.edu/grace/RL0602_mascons.html" target="_blank" rel="noopener">CSR Mascon官方页面</a></td><td>注意海陆掩膜、背景模型恢复与产品版本；不能只凭文件名推断OBP或海面质量。</td></tr>
+<tr><td><strong>GFZ GravIS OBP L3</strong></td><td><a href="https://gravis.gfz.de/obp" target="_blank" rel="noopener">GravIS OBP下载与说明</a></td><td>提供海洋底压的多个物理分量及误差；引用时应说明选择的是哪一项，不能直接把所有分量相加。</td></tr>
+<tr><td><strong>CSR Dynamic Ocean RL06.2DO</strong></td><td><a href="https://www2.csr.utexas.edu/grace/csr-rl062-dynamic-ocean-mascons.html" target="_blank" rel="noopener">CSR Dynamic Ocean说明</a></td><td><strong>不是直接的完整OBP或全球质量海平面产品</strong>；已去除部分GRD及地震等信号，不能不加处理就用于质量预算。</td></tr>
+</tbody></table></div>
+<p>选择原则：做<strong>海底压力验证</strong>时优先选与压力记录观测定义一致的OBP；做<strong>测高−比容−质量预算</strong>时，优先核实是否存在已经恢复/移除适当大气项的海洋质量/SLA型产品。具体不是按数据中心名字机械判断，而是按<strong>版本及处理说明</strong>判断。</p>
+<h2 id="conversion">3. 海水密度、气压与GIA：转换的三个检查</h2>
+<p><strong>第一，单位。</strong>若文件为 <code>cm EWH</code>，它用淡水密度表达面密度；相同质量用海水厚度表示时需乘 <code>1000/1025</code>。这个密度比是约定的近似值，严谨预算可用局地参考海水密度并作敏感性实验。</p>
+<p><strong>第二，大气质量。</strong>OBP可含大气压力变化。将它作为海洋水质量进行预算时，需要移除与水质量定义不一致的大气质量项。NASA GRACE Technical Note 12说明了全球平均OBP向全球海洋质量转换时大气项的处理。<strong>该全球平均改正不能未经验证直接代替北太平洋区域的逐格改正。</strong>若使用GSFC SLA产品，先核对其海洋GAD平均项是否已经移除，不要二次修正。</p>
+<p><strong>第三，GIA和地震。</strong>不同Mascon产品可能已扣除GIA、包含地震先验模型或配套提供地震改正项。若再额外减去相同项，会造成重复改正。对于2011年东北日本地震，必须记录GRACE重力阶跃的处理与Okada海底垂直位移模型是<strong>不同物理量</strong>，不能用后者直接当成前者的等量改正。</p>
+<h2 id="gsfc">4. GSFC OBP与SLA：与你当前程序直接相关</h2>
+<p>GSFC官方网站明确区分：<code>OBP-ICE6GD</code> 为恢复GAD后的海洋底压型Mascon；<code>SLA-ICE6GD</code> 在恢复GAD之后进一步去除海洋平均GAD项，用于海洋质量海平面相关比较。两者都以质量的等效水厚形式表达，但<strong>所含大气质量信号不同</strong>。</p>
+<div class="box"><strong>当前项目核查：</strong>你的MATLAB函数 <code>P11_convert_GSFC_SLA_to_mascon_gsfc.m</code>读取的是 <code>GSFC.glb.200204_202606_RL06v2.0_SLA-ICE6GD.txt</code>，而不是OBP文件；其输出 <code>rg</code> 单位为 <code>cm EWH</code>。0.5°网格是原始Mascon数值映射的<strong>显示/计算网格</strong>，不是独立0.5°重力观测。若改用GSFC官方HALFDEGREE OBP NetCDF，须重新检查文件变量、元数据及海洋插值说明，不能只改文件名。</div>
+<h2 id="workflow">5. 北太平洋区域海平面预算：统一处理路径</h2>
+<ol><li><strong>固定研究域：</strong>使用项目中的 <code>config/regions/out_p1-1.txt</code>；选取海洋有效格点，并统一经度[0,360)及实际网格/mascon面积权重。临岸混合mascon及空间泄漏需要单独评估。</li><li><strong>固定时段：</strong>2005-01至2024-12；GRACE与测高/温盐采用共同有效月份，不插补GRACE与GRACE-FO之间的缺测月份。</li><li><strong>处理物理量：</strong>读取变量的真实 <code>units</code>（Pa、cm EWH、mm EWH）及大气/GIA/同震记录；如果是纯OBP而目标是水质量，先做与具体产品一致的大气改正。</li><li><strong>转换量纲：</strong>如为 <code>cm EWH</code>，乘 <code>10×1000/1025</code> 获得mm海水等效厚度；将同一空间掩膜作用于结果。</li><li><strong>区域加权：</strong>按Mascon真实面积或规则格点面积加权，区域时间序列先求月平均后拟合；不要把等值复制到0.5°网格误认为提高了分辨率。</li><li><strong>拟合与报告：</strong>共同月份上拟合常数、线性趋势、周年及半年周期；对2011年3月可采用阶跃敏感性拟合，并分别报告已处理和未处理地震的结果。保存区域趋势、1σ、有效月份数、海陆掩膜和源产品版本。</li><li><strong>预算：</strong>把质量等效海平面与测高SSH及温盐比容比较时，另行处理海底垂直运动及一致参考框架，不能把质量转换当作全部物理改正。</li></ol>
+<div class="eq">h_mass(t) = &lt; (ρ_f / ρ_sw) × EWH_fresh(t) &gt;_A
+altimetry SSH ≠ h_mass + h_steric （未统一固体地球及基准时通常不严格成立）
+R = SSH_alt − h_mass − h_steric − [经过物理核查的固体地球项]</div>
+<h2 id="matlab">6. MATLAB：运行区域转换与拟合示例</h2>
+<p>附带 <code>grace_obp_to_altimetry_example.m</code>：读取项目内标准化Mascon结构（<code>lon</code>、<code>lat</code>、<code>rg</code>、<code>tt</code>），严格要求用户明确声明源产品是“<strong>已经可代表海洋质量的EWH</strong>”。该示例<strong>不会</strong>把任意未经大气处理的OBP自动视为海洋质量；若还没有完成产品专属改正，会直接报错。</p>
+<pre><code>root = '/Volumes/PolyUSSD/HongKong/p-2026-NorthPacific_SeaLevel';
+inputMat = fullfile(root,'data','processed','GRACE','GSFC_RL06v2_SLA_202606.mat');
+region = fullfile(root,'config','regions','out_p1-1.txt');
+outDir = fullfile(root,'results','GRACE','mass_vs_altimetry');
+OUT = grace_obp_to_altimetry_example(inputMat,'mascon_gsfc',region,outDir, ...
+    'units','cm EWH','massReady',true,'rhoSea',1025);
+% 注意：GSFC SLA版本的更严格区域分析应优先使用原始Mascon面积，
+% 而不是把复制至0.5°格点后的值视为独立观测。</code></pre>
+<p>结果输出：逐月区域平均 <code>mass_equivalent_mm</code>、拟合趋势及OLS标准误、有效月份、元数据TXT，以及表格CSV。代码中的结果为质量水柱等效厚度；不自动给出SSH，也不擅自修正GIA或地震。</p>
+<h2 id="checks">7. 常见错误与核查</h2>
+<ul><li><strong>OBP ≠ 总SSH：</strong>只有质量部分对应；上层/深层比容和海底运动仍需另行计算。</li><li><strong>GSFC OBP ≠ GSFC SLA：</strong>所含平均气压项不同；参考官方产品说明。</li><li><strong>cm EWH不是cm海水：</strong>应按明确的密度约定转换，且勿重复换算。</li><li><strong>动态海洋CSR DO不是标准全球质量序列：</strong>已去除部分地震与GRD成分。</li><li><strong>小区域海岸泄漏：</strong>Mascon网格采样间距≠独立空间分辨率。</li><li><strong>震前震后拟合：</strong>2011年阶跃信号与线性趋势不应在无检查下混为一谈。</li><li><strong>不要忽略产品信息：</strong>记录GIA、C20/C30、degree 1、GAD以及版本，避免与外部校正重复。</li></ul>
+<h2 id="references">8. 官方资料与引用</h2>
+<ol><li><a href="https://earth.gsfc.nasa.gov/geo/data/grace-mascons" target="_blank" rel="noopener">NASA GSFC GRACE/GRACE-FO Mascons：OBP与SLA原始产品下载说明</a>。</li>
+<li>Loomis, B. D., Luthcke, S. B., &amp; Sabaka, T. J. (2019). <a href="https://doi.org/10.1007/s00190-019-01252-y" target="_blank" rel="noopener">Regularization and error characterization of GRACE mascons.</a> <i>Journal of Geodesy</i>, 93, 1381–1398.</li>
+<li><a href="https://podaac.jpl.nasa.gov/gravity/grace-documentation" target="_blank" rel="noopener">PO.DAAC GRACE Documentation（特别是Technical Note 12：Global Mean OBP → Ocean Mass）</a>。</li>
+<li><a href="https://www2.csr.utexas.edu/grace/RL0602_mascons.html" target="_blank" rel="noopener">CSR RL06.2 Mascons与海陆掩膜</a>。</li>
+<li><a href="https://gravis.gfz.de/obp" target="_blank" rel="noopener">GFZ GravIS：Ocean Bottom Pressure</a>。</li>
+<li>Dahle, C., et al. (2025). <a href="https://doi.org/10.5194/essd-17-611-2025" target="_blank" rel="noopener">GravIS: mass anomaly products from satellite gravimetry.</a> <i>Earth System Science Data</i>, 17, 611–631.</li>
+<li>Bonin, J., et al. (2026). <a href="https://doi.org/10.5194/essd-18-3481-2026" target="_blank" rel="noopener">GRACE and GRACE-FO mascons for ocean dynamic applications.</a> <i>Earth System Science Data</i>, 18, 3481–3505.</li>
+<li><a href="gia-altimetry-cm-cf.html">本站延伸阅读：GIA测高校正与CM/CF</a>；<a href="manometric-sea-level.html">Manometric sea level</a>。</li></ol>
+<p class="small">Version 1.0 · 2026-11-02。本文提供理论、来源和示例代码，不代表对用户本地Mascon产品已经重新处理或验证区域趋势。对科学结论，应以源文件元数据和实际复现结果为准。</p><a href="index.html">← 返回 Research Notes</a></main><footer class="footer"><div class="wrap">© 2026 Chistrong Wen · Academic Research Notes</div></footer></body></html>
