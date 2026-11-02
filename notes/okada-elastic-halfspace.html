@@ -1,0 +1,121 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Okada 位错模型：半无限弹性空间理论、MATLAB 实践与源码引用 | Chistrong Wen</title><meta name="description" content="Okada 1985 弹性半空间断层位错模型：基本理论、公式、参数约定、MATLAB okada85 代码实例、版本核查及科学引用。"><link rel="stylesheet" href="style.css"><script defer src="../assets/analytics.js"></script><style>.note{max-width:940px}.note p,.note li{line-height:1.95}.box{padding:18px 22px;background:#edf5fb;border-left:4px solid #1468a0;border-radius:6px;margin:22px 0}.warn{background:#fff7e8;border-color:#c79028}table{border-collapse:collapse;width:100%;font-size:.93rem}td,th{padding:12px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}th{background:#f1f6fa}.scroll{overflow:auto}.eq{padding:16px;background:#f3f7fa;overflow:auto;font-family:ui-monospace,monospace;white-space:pre-wrap}.sketchfab-embed-wrapper{width:100%;overflow:hidden;border-radius:14px;background:#0c2033;margin:22px 0}.sketchfab-embed-wrapper iframe{display:block;width:100%;height:560px;border:0}.small{font-size:.88rem;color:#63778b}h2{scroll-margin-top:100px}button{cursor:pointer}@media(max-width:600px){.sketchfab-embed-wrapper iframe{height:380px}}pre.code{background:#102235;color:#e9f3ff;padding:18px;border-radius:9px;overflow-x:auto;line-height:1.65;font-size:.89rem}code{overflow-wrap:anywhere}.note h3{margin-top:22px}.note a{word-break:break-word}.tag{font-size:.82rem;color:#4d6a85}.doi{font-family:ui-monospace,monospace;font-size:.87rem}</style></head>
+<header><nav class="wrap nav"><a class="brand" href="../index.html">Chistrong Wen</a><div class="links"><a href="../index.html">Home</a><a href="../index.html#research">Research</a><a class="active" href="index.html">Research Notes</a><a href="../index.html#publications">Publications</a></div></nav></header>
+<div class="hero"><div class="wrap"><div class="eyebrow">RESEARCH NOTE · SOLID EARTH · EARTHQUAKES · MATLAB</div><h1>Okada 地震位错模型：从半无限弹性空间理论到 MATLAB 计算</h1><p>断层几何、解析解、坐标与单位、okada85 函数使用及原始代码出处</p><div class="note-meta">Chistrong Wen · 2026-11-02 · Theory &amp; Reproducible Code · 中文</div></div></div>
+<main class="wrap note"><a class="back" href="index.html">← 返回 Research Notes</a>
+<div class="box"><strong>核心结论：</strong>Okada (1985) 给出均匀、各向同性、线弹性半无限空间中倾斜剪切或张裂断层造成<strong>自由表面静态位移、倾斜及应变</strong>的闭式解析解。本文示例使用 François Beauducel 编写的 <code>okada85.m</code>，其输入 <code>DEPTH</code> 为<strong>断层中心深度</strong>而不是上边缘深度；所有几何长度须一致，<code>SLIP</code> 单位决定输出位移单位。上传的代码实际默认 <code>nu=0.281</code>，与头部注释的 <code>0.25</code> 不一致，建议调用时显式指定。</div>
+<div class="toc"><strong>Contents / 目录</strong><ol>
+<li><a href="#elastic">半无限弹性空间与边界条件</a></li><li><a href="#dislocation">断层位错的物理意义</a></li><li><a href="#okada">Okada (1985) 解的结构</a></li><li><a href="#params">okada85 参数、坐标和约定</a></li><li><a href="#demo">MATLAB 运行与绘图示例</a></li><li><a href="#multi">多子断层叠加与海底形变</a></li><li><a href="#checks">验证与常见错误</a></li><li><a href="#source">软件来源与引用</a></li><li><a href="#refs">参考文献</a></li></ol></div>
+<h2 id="elastic">1. 为什么采用弹性半无限空间？</h2>
+<p>地震同震形变发生在相对短的时间尺度上。在一种常用的一阶近似中，地球表面附近的岩石被视作<strong>均匀、各向同性、线弹性半无限体</strong>：水平范围无限，地表为平面，深度方向无限延伸；介质的弹性性质由 Lamé 常数 λ、μ 或泊松比 ν 描述。这一近似能有效隔离断层滑移导致的瞬时弹性响应，但不包含真实地球的球形曲率、分层、黏弹性、地形与海水动力响应。[1,2]</p>
+<div class="eq">z ≤ 0（地表 z = 0，向上为正）
+∂σᵢⱼ / ∂xⱼ = 0                 （静态平衡，无体力增量）
+σᵢⱼ = λ δᵢⱼ (∇·u) + μ(∂uᵢ/∂xⱼ + ∂uⱼ/∂xᵢ)
+μ∇²u + (λ + μ)∇(∇·u) = 0
+σᵢⱼ nⱼ = 0,  在自由表面 z = 0</div>
+<p>这里 <em>u</em> 为位移向量，σ 为应力张量。上述自由表面边界条件意味着模型顶面无外加表面牵引：因此标准Okada解<strong>不显式考虑海水载荷</strong>；在大洋中将其直接解释为真实海底形变时，应将这一点作为模型近似说明。</p>
+<h2 id="dislocation">2. 断层位错：连续介质中的位移不连续</h2>
+<p>位错模型将地震断层表示为介质内部的一个有限矩形滑移面。其两侧位移出现有限跳变，而断层外介质仍满足弹性平衡方程。用断层面两侧的位移差表示位错：</p>
+<div class="eq">[u] = u⁺ − u⁻ = U₁ ŝ + U₂ d̂ + U₃ n̂
+U₁ = SLIP × cos(RAKE)       （沿走向）
+U₂ = SLIP × sin(RAKE)       （沿倾向）
+U₃ = OPEN                  （张裂方向）</div>
+<p><code>ŝ</code>、<code>d̂</code>、<code>n̂</code> 分别为断层的走向、倾向、法向基向量；正负号需遵守具体实现的约定。逆冲、正断、走滑和张裂机制，均可由分量组合表示。<strong>地表有位移不代表断层必须出露地表</strong>：埋藏断层滑移同样能造成广域地表隆升或沉降。</p>
+<h2 id="okada">3. Okada (1985) 的解析解如何工作？</h2>
+<p>Okada (1985) 将点源解积分到有限矩形断层，并给出半无限空间自由表面的闭式表达，分别处理沿走向剪切、沿倾向剪切和张裂三类位错。线弹性条件下三者可通过叠加原理组合。[1]</p>
+<div class="eq">u(x) = U₁ · Gˢˢ(x; geometry,ν)
+     + U₂ · Gᵈˢ(x; geometry,ν)
+     + U₃ · Gᵗᶠ(x; geometry,ν)
+
+对任一矩形核函数 F：
+C[F] = F(x,p) − F(x,p−W) − F(x−L,p) + F(x−L,p−W)</div>
+<p>其中 <code>L</code> 为断层走向长度，<code>W</code> 为倾向宽度；四角组合通常称为 <em>Chinnery notation</em>，使有限矩形断层的位移核能够通过角点函数快速计算。这不是忽略四角以外的断层影响，而是对矩形面分布积分后的解析表达。[1]</p>
+<p>本次上传的函数中，<code>chinnery()</code> 实现四角组合，而 <code>ux_ss/ux_ds/ux_tf</code> 等函数分别计算走滑、倾滑、张裂位移核；最后旋转回地理坐标系，输出东、北、上三维位移。相关代码保留了Okada (1985) 的解析公式，同时进行了MATLAB向量化。[3]</p>
+<div class="box warn"><strong>1985与1992的区别：</strong>Okada (1985) 重点给出<strong>地表</strong>变形的解析表达；Okada (1992) 扩展到弹性半空间<strong>内部</strong>变形。本文上传的 <code>okada85.m</code> 针对地表点计算，不能仅修改观测点的深度就将它当作完整的地下三维位移函数。如果目标是海底以下或任意埋深的内部位移，应使用适合Okada (1992) 的程序（如NIED的DC3D）并检验参数约定。[2,4]</div>
+<h2 id="params">4. okada85.m 的输入、输出及约定</h2>
+<p>上传源码中的函数原型是：</p>
+<pre class="code">[uE,uN,uZ] = okada85(E,N,DEPTH,STRIKE,DIP,LENGTH,WIDTH,RAKE,SLIP,OPEN,NU);</pre>
+<div class="scroll"><table><thead><tr><th>参数</th><th>含义与重要约定</th></tr></thead><tbody>
+<tr><td><code>E, N</code></td><td>观测点相对<strong>断层中心水平投影</strong>的东、北坐标；通常以km为单位</td></tr>
+<tr><td><code>DEPTH</code></td><td>断层<strong>几何中心</strong>到地表的深度，向下为正</td></tr>
+<tr><td><code>STRIKE</code></td><td>走向角，正北起顺时针0–360°；沿走向观察，断层向右侧倾斜</td></tr>
+<tr><td><code>DIP</code></td><td>倾角，0–90°，相对水平面</td></tr>
+<tr><td><code>LENGTH, WIDTH</code></td><td>沿走向与沿倾向的断层尺寸，必须与E、N、DEPTH使用同一长度单位</td></tr>
+<tr><td><code>RAKE</code></td><td>滑动角，角度单位；沿走向剪切与倾向剪切由其分解</td></tr>
+<tr><td><code>SLIP, OPEN</code></td><td>断层滑动量和张裂量；位移输出继承其长度单位</td></tr>
+<tr><td><code>NU</code></td><td>泊松比；建议明确传入，例如 <code>0.25</code>；上传版本实际默认0.281</td></tr>
+<tr><td><code>uE,uN,uZ</code></td><td>地表东、北、上位移；<code>uZ &gt; 0</code> 表示隆升</td></tr>
+</tbody></table></div>
+<p><strong>中心深度与上缘深度的转换</strong>是最常见的错误之一。对于一个沿倾向宽度为 <code>W</code> 的矩形断层，其几何中心和上缘深度满足：</p>
+<div class="eq">depth_center = depth_top + 0.5 × W × sin(dip)
+depth_top = depth_center − 0.5 × W × sin(dip)</div>
+<p>因此，若有限断层模型文件提供的是上边缘深度，必须先换算成中心深度后再调用。还需核对文件给出的经纬度究竟代表上缘中点、断层中心还是某个角点；只调整深度、不调整水平位置可能仍然出错。</p>
+<h2 id="demo">5. 运行MATLAB：一个可复现的逆冲断层示例</h2>
+<p>将 <code>okada85.m</code> 与 <code>okada85_demo.m</code> 放在同一个文件夹；在MATLAB当前路径运行脚本。示例使用一个<strong>假设的</strong>矩形逆冲断层，不是2011年日本东北地震的真实滑移模型，不应将其示意结果作为观测或科学结论。</p>
+<pre class="code">% 网格与几何长度均用 km；滑移与位移均用 m
+[E,N] = meshgrid(-100:2:100,-100:2:100);
+depth=12; strike=200; dip=15;
+L=80; W=40; rake=90; slip=5; opening=0; nu=0.25;
+
+% 断层上缘不得无意间穿出模型地表
+assert(depth - W*sind(dip)/2 &gt; 0);
+
+[uE,uN,uZ] = okada85(E,N,depth,strike,dip, ...
+                      L,W,rake,slip,opening,nu);
+
+figure('Color','w');
+imagesc(E(1,:),N(:,1),uZ);
+axis xy equal tight; colorbar;
+xlabel('East (km)'); ylabel('North (km)');
+title('Coseismic vertical displacement (m)');
+</pre>
+<div class="box"><strong>运行要点：</strong>显式传入 <code>nu</code>，仅请求三个输出时函数返回位移；如果请求其它数量的输出，函数的返回内容会改变。可以先运行原作者发布的 <code>okada85_checklist.m</code> 验证官方论文测试用例，再使用实际有限断层模型。[3]</div>
+<h2 id="multi">6. 扩展到2011年东北日本地震：多子断层叠加</h2>
+<p>真实大型地震的滑动分布通常由数十至数百个子断层组成。在线弹性假设下，对每个子断层分别求解三维位移，再对所有子断层求和：</p>
+<div class="eq">uₜₒₜₐₗ(x) = Σₖ uₖ(x)
+
+区域平均同震垂直位移：
+&lt;uZ&gt; = Σᵢ Aᵢ Mᵢ uZᵢ / Σᵢ Aᵢ Mᵢ</div>
+<p>其中 <code>Aᵢ</code> 为格点面积，<code>Mᵢ</code> 为研究区海洋掩膜。将经纬度转换为每个子断层局地东、北距离时，应注意大区域内球面距离和局地平面近似的误差；在远离断层的地点，也应评估平面弹性半空间假设的适用范围。</p>
+<pre class="code">% 示例结构：faults需自行从已核验的有限断层文件解析
+uZ_sum = zeros(size(E));
+for k = 1:numel(faults)
+    f = faults(k);
+    % E_k,N_k: 每个格点相对第k子断层中心的东/北坐标(km)
+    [~,~,dZ] = okada85(E_k,N_k,f.depth_center, ...
+        f.strike,f.dip,f.length,f.width, ...
+        f.rake,f.slip_m,0,0.25);
+    uZ_sum = uZ_sum + dZ;
+end</pre>
+<p class="small">上段是计算逻辑示意，<code>faults</code>、<code>E_k</code>、<code>N_k</code> 不属于 okada85 内置变量，需要从滑移模型读取并构建；前面的单断层脚本才是无需外部震源数据的完整运行示例。</p>
+<div class="box warn"><strong>注意物理量：</strong>Okada得到的是地壳<strong>同震位移阶跃（m或mm）</strong>，并不是天然的长期线性趋势（mm/yr），更不等同于地心海面变化。若要评估2005–2024年回归趋势中的阶跃影响，应在给定地震时刻构造Heaviside阶跃，并使用与目标序列相同的回归基函数估计等效趋势；该数值依赖拟合时段和阶跃是否单独建模。</div>
+<h2 id="checks">7. 计算验证与常见错误</h2>
+<ul>
+<li><strong>上缘深度误当中心深度：</strong>会改变形变幅度及空间图案；先统一每个子断层的参考点。</li>
+<li><strong>单位不一致：</strong>几何参数可统一为km，SLIP为m；输出位移为m，转换mm应乘1000，倾斜/应变的缩放要另行检查。</li>
+<li><strong>错误泊松比：</strong>所上传函数头部标注0.25，实际代码默认0.281，应显式设置并报告。</li>
+<li><strong>倾角和走向不一致：</strong>断层的向右倾斜约定、rake符号及不同模型文件的坐标定义必须逐项核实。</li>
+<li><strong>忽略模型边界：</strong>标准Okada未考虑真实海水压力、地球分层、地形和曲率；应将此作为近似而非完整海洋响应。</li>
+<li><strong>直接把海底位移当海面趋势：</strong>对于区域海平面预算，还需要质量—体积关系、海水密度及地心参考框架一致性。</li>
+<li><strong>验证：</strong>使用原作者的checklist测试，与另一套独立实现比较，并检查网格加密后区域平均是否稳定。</li>
+</ul>
+<h2 id="source">8. 软件函数到底来自哪里？</h2>
+<div class="box"><strong>三个层级必须分别引用：</strong><br>① <strong>理论：</strong>Okada (1985) 为半无限弹性空间的地表解析解；<br>② <strong>软件：</strong>François Beauducel 为本次使用的MATLAB <code>okada85.m</code> 实现作者；<br>③ <strong>断层参数：</strong>实际地震需要引用对应有限断层滑移模型的数据作者及版本，而不能只引用Okada。</div>
+<p><strong>上传版本信息：</strong>文件注明作者 François Beauducel（Institut de Physique du Globe de Paris），创建于1997年，最近注明更新为2014-05-24；授权条款为BSD类许可。代码在头部记录了若干数值与边界条件修复。用户上传的这一份含有不同于头部说明的泊松比默认值，故文章明确称之为“本地使用版本”，不直接声明它与网站下载的原始版本逐字相同。</p>
+<div class="scroll"><table><thead><tr><th>入口</th><th>用途</th></tr></thead><tbody>
+<tr><td><a href="https://www.mathworks.com/matlabcentral/fileexchange/25982-okada-surface-deformation-due-to-a-finite-rectangular-source" target="_blank" rel="noopener">MathWorks File Exchange：okada85</a></td><td>Beauducel的函数说明、下载与checklist</td></tr>
+<tr><td><a href="https://www.ipgp.fr/~beaudu/matlab.html" target="_blank" rel="noopener">IPGP / Beauducel MATLAB Toolbox</a></td><td>作者工具箱目录及源码指引</td></tr>
+<tr><td><a href="https://github.com/IPGP/deformation-lib/blob/master/okada/okada85.m" target="_blank" rel="noopener">IPGP GitHub：okada85.m</a></td><td>公开源码，可比较不同实现版本</td></tr>
+<tr><td><a href="https://www.bosai.go.jp/e/dc3d.html" target="_blank" rel="noopener">NIED DC3D / DC3D0</a></td><td>Okada (1992) 内部位移计算的另一类官方程序</td></tr>
+</tbody></table></div>
+<p><strong>推荐论文方法描述：</strong>“Coseismic surface displacements were calculated using the analytical solutions of Okada (1985), implemented with the MATLAB <code>okada85</code> function by François Beauducel. Fault geometry and slip were taken from the cited finite-fault models; Poisson’s ratio was explicitly set to 0.25.” 最后一项应与你实际运行参数一致。</p>
+<h2 id="refs">9. 参考文献</h2>
+<ol>
+<li>Okada, Y. (1985). <a href="https://doi.org/10.1785/BSSA0750041135" target="_blank" rel="noopener">Surface deformation due to shear and tensile faults in a half-space</a>. <em>Bulletin of the Seismological Society of America</em>, 75(4), 1135–1154.</li>
+<li>Okada, Y. (1992). <a href="https://doi.org/10.1785/BSSA0820021018" target="_blank" rel="noopener">Internal deformation due to shear and tensile faults in a half-space</a>. <em>Bulletin of the Seismological Society of America</em>, 82(2), 1018–1040.</li>
+<li>Beauducel, F. (2014 update). <a href="https://www.mathworks.com/matlabcentral/fileexchange/25982-okada-surface-deformation-due-to-a-finite-rectangular-source" target="_blank" rel="noopener">Okada: Surface deformation due to a finite rectangular source</a>. MATLAB Central File Exchange. （软件作者、版本与下载入口）</li>
+<li>National Research Institute for Earth Science and Disaster Resilience (NIED). <a href="https://www.bosai.go.jp/e/dc3d.html" target="_blank" rel="noopener">Program to calculate deformation due to a fault model: DC3D0 / DC3D</a>. （Okada 1992内部位移程序）</li>
+<li>Aki, K., &amp; Richards, P. G. (1980). <em>Quantitative Seismology: Theory and Methods</em>. W. H. Freeman. （断层机制及rake等约定的基础参考）</li>
+</ol>
+<p class="small">版本说明：2026-11-02。本文为理论与使用方法笔记；单断层代码是教学示例，未使用真实地震观测反演或提供验证过的东北日本地震位移场。页面样式沿用本站Research Notes。引用软件请注明实际使用的文件版本与修改。</p>
+<a href="index.html">← 返回 Research Notes</a></main>
+<footer class="footer"><div class="wrap">© 2026 Chistrong Wen · Academic Research Notes</div></footer>
