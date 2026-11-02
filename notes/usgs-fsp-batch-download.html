@@ -1,0 +1,80 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>USGS 有限断层模型批量下载：FDSN API、FSP 文件与 MATLAB 工作流 | Chistrong Wen</title><meta name="description" content="使用 USGS FDSN/ComCat 地震目录与 finite-fault 产品接口批量下载 SRCMOD FSP 有限断层模型，整理可追溯数据清单，并衔接 Okada 地震位错计算。"><link rel="stylesheet" href="style.css"><script defer src="../assets/analytics.js"></script><style>.note{max-width:940px}.note p,.note li{line-height:1.95}.box{padding:18px 22px;background:#edf5fb;border-left:4px solid #1468a0;border-radius:6px;margin:22px 0}.warn{background:#fff7e8;border-color:#c79028}table{border-collapse:collapse;width:100%;font-size:.93rem}td,th{padding:12px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}th{background:#f1f6fa}.scroll{overflow:auto}.eq{padding:16px;background:#f3f7fa;overflow:auto;font-family:ui-monospace,monospace;white-space:pre-wrap}pre{padding:16px;background:#12243a;color:#eff8ff;overflow:auto;border-radius:8px;line-height:1.65;font-size:.88rem}code{overflow-wrap:anywhere}.small{font-size:.88rem;color:#63778b}h2{scroll-margin-top:100px}</style></head><body>
+<header><nav class="wrap nav"><a class="brand" href="../index.html">Chistrong Wen</a><div class="links"><a href="../index.html">Home</a><a href="../index.html#research">Research</a><a class="active" href="index.html">Research Notes</a><a href="../index.html#publications">Publications</a></div></nav></header>
+<div class="hero"><div class="wrap"><div class="eyebrow">RESEARCH NOTE · EARTHQUAKE · USGS · FINITE FAULT · MATLAB</div><h1>USGS 有限断层模型如何批量下载？</h1><p>FDSN 地震目录、GeoJSON 事件详情、FSP 文件与可复现 MATLAB 数据流程</p><div class="note-meta">Chistrong Wen · 2026-11-02 · Data &amp; Computational Workflow · 中文</div></div></div>
+<main class="wrap note"><a class="back" href="index.html">← 返回 Research Notes</a>
+<div class="box"><strong>核心结论：</strong>USGS 地震目录提供地震事件的查询接口，但<strong>不是所有地震都具有有限断层 FSP 模型</strong>。推荐工作流是：① 按时间、震级和区域查询 ComCat → ② 根据每个事件的 GeoJSON detail 读取 <code>finite-fault</code> 产品 → ③ 从 <code>contents</code> 中识别并下载 <code>.fsp</code> → ④ 保存模型来源、版本及事件清单 → ⑤ 检查断层几何和单位后再用于 Okada 位错计算。</div>
+<div class="toc"><strong>Contents / 目录</strong><ol><li><a href="#overview">数据类型与研究用途</a></li><li><a href="#api">USGS 接口与查询逻辑</a></li><li><a href="#scripts">MATLAB 下载函数与运行方式</a></li><li><a href="#outputs">输出文件及数据组织</a></li><li><a href="#validation">下载后的质量检查</a></li><li><a href="#okada">与 Okada 同震形变的衔接</a></li><li><a href="#cautions">脚本已知问题与适用范围</a></li><li><a href="#references">引用与官方资料</a></li></ol></div>
+<h2 id="overview">1. 下载的是什么？事件目录不等于断层滑移模型</h2>
+<p>地震目录一般提供事件发生时间、震中、震级和深度；有限断层模型（finite-fault model）还描述断层面的空间几何、各子断层的滑移量及滑移方向。后者是计算同震地表/海底位移的主要输入。USGS 对部分事件发布有限断层模型，其中包含 <strong>FSP（Finite Source Parameter）ASCII</strong> 格式文件，可与源模型元数据一起用于复现计算。</p>
+<div class="scroll"><table><thead><tr><th>文件/数据</th><th>物理内容</th><th>主要用途</th></tr></thead><tbody><tr><td>GeoJSON catalog</td><td>震级、时间、震中、事件 ID、详情链接</td><td>建立检索清单</td></tr><tr><td>GeoJSON detail</td><td>事件附属产品及其下载链接</td><td>定位 finite-fault 产品</td></tr><tr><td><code>.fsp</code></td><td>有限断层几何、子断层滑移参数（以具体文件头定义为准）</td><td>滑移模型转位移计算</td></tr><tr><td><code>.csv</code> manifest</td><td>事件、文件、来源及下载状态</td><td>核查版本、避免重复</td></tr></tbody></table></div>
+<h2 id="api">2. FDSN/ComCat API 的两级请求</h2>
+<p>第一级使用 USGS <a href="https://earthquake.usgs.gov/fdsnws/event/1/" target="_blank" rel="noopener">FDSN Event Web Service</a>，按条件返回 GeoJSON 事件列表；第二级读取每个事件的 <code>properties.detail</code>，在 <code>properties.products</code> 中寻找 <code>finite-fault</code> 模型。一个事件可能没有此类产品，也可能有多个来源或版本。USGS 官方的 <a href="https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson_detail.php" target="_blank" rel="noopener">GeoJSON Detail 结构说明</a>可作为字段依据。</p>
+<p>原始项目在北太平洋采用的区域边界为纬度31.709°–66.399°N、经度125.859°–253.125°E。为处理跨180°经线的查询，程序将经度拆为 <code>125.859…180</code> 和 <code>−180…−106.875</code> 两段，合并后按事件 ID 去重。</p>
+<pre><code>% 原始流程的核心：查询事件列表
+api = &#x27;https://earthquake.usgs.gov/fdsnws/event/1/query&#x27;;
+opts = weboptions(&#x27;Timeout&#x27;,90,&#x27;ContentType&#x27;,&#x27;json&#x27;);
+catalog = webread(api,&#x27;format&#x27;,&#x27;geojson&#x27;, ...
+    &#x27;starttime&#x27;,&#x27;2005-01-01&#x27;, &#x27;endtime&#x27;,&#x27;2025-01-01&#x27;, ...
+    &#x27;minmagnitude&#x27;,6,&#x27;eventtype&#x27;,&#x27;earthquake&#x27;, ...
+    &#x27;minlatitude&#x27;,31.709,&#x27;maxlatitude&#x27;,66.399, ...
+    &#x27;minlongitude&#x27;,125.859,&#x27;maxlongitude&#x27;,180, ...
+    &#x27;limit&#x27;,20000,opts);
+
+% catalog.features 包含事件 ID、震级、发生时间及 detail URL。
+% 注意这只是经度分区之一；完整脚本还查询 -180 至 -106.875。</code></pre>
+<div class="box warn"><strong>接口限制：</strong>USGS FDSN 单次查询最多返回20,000条事件。原脚本直接设置 <code>limit=20000</code>，没有实现自动分页；如果扩大区域、降低震级门槛或延长时间段，应按时间窗拆分或使用 <code>offset</code> 分页，不能把单页结果视为完整目录。</div>
+<h2 id="scripts">3. MATLAB 代码：原项目中的两个下载函数</h2>
+<p>本次专栏依据已有的 <code>P13_download_USGS_FSP.m</code> 与 <code>P13_download_USGS_FSP_M6.m</code> 编写。两者都执行地震目录查询、有限断层产品检索、FSP文件下载、断点式复用既有文件和错误日志记录，<strong>本身并不计算地震位移</strong>。</p>
+<div class="scroll"><table><thead><tr><th>脚本</th><th>实际查询设置</th><th>说明</th></tr></thead><tbody><tr><td><code>P13_download_USGS_FSP.m</code></td><td>M≥7；2005-01-01 至 2024-12-01（结束界限）</td><td>较高震级筛选；不覆盖2024年12月</td></tr><tr><td><code>P13_download_USGS_FSP_M6.m</code></td><td>M≥6；2005-01-01 至 2025-01-01（结束界限）</td><td>覆盖2005–2024完整日历期；下载机会更多</td></tr></tbody></table></div>
+<p>如果要覆盖2005–2024年全部月份并检索M≥6事件，优先采用第二个脚本，并修改 <code>root</code> 为本机研究目录。运行方式：</p>
+<pre><code>% 运行既有脚本，需联网（示例：M≥6）
+addpath(&#x27;/path/to/your/scripts&#x27;);
+SUMMARY = P13_download_USGS_FSP_M6();
+disp(SUMMARY)
+
+% 注意：修改脚本开头的 root 以适配本机目录。
+% 文件由脚本保存到 data/raw/earthquake/USGS_FSP_2005_2024/</code></pre>
+<p>脚本依赖MATLAB的 <code>webread</code>、<code>websave</code>、<code>weboptions</code>、<code>jsondecode</code> 等能力，实际网络请求需要本机联网。不要求额外第三方工具箱；但下载成功取决于接口响应、文件链接是否仍可访问以及本机的权限设置。</p>
+<h2 id="outputs">4. 数据输出及可追溯清单</h2>
+<pre><code>NorthPacific_SeaLevel/
+└── data/raw/earthquake/USGS_FSP_2005_2024/
+    ├── all_events.csv              # 搜索到的地震事件
+    ├── fsp_files.csv               # FSP URL、来源及本地路径
+    ├── errors.csv                  # 下载失败日志（有错误时）
+    ├── USGS_FSP_download_summary.mat
+    └── fsp/
+        └── &lt;event_id&gt;/
+            ├── p01_&lt;source&gt;_&lt;model&gt;.fsp
+            └── ...</code></pre>
+<p><code>fsp_files.csv</code> 记录 <code>event_id</code>、<code>date_utc</code>、<code>magnitude</code>、<code>product_source</code>、<code>source_url</code>、<code>local_file</code>、<code>file_bytes</code> 和 <code>status</code> 等字段。下载器会重试请求；<code>overwrite=false</code> 时非空的已有文件通常不会重新下载。文件未生成时（例如无错误的任务）可能没有 <code>errors.csv</code>。</p>
+<h2 id="validation">5. FSP 下载后的必要检查</h2>
+<ol><li><strong>真实性：</strong>检查文件非空、不是HTML报错页，且有符合FSP规范的断层参数。</li><li><strong>元数据：</strong>记录事件 ID、模型发布时间、提供单位、版本，以及事件详情页网址；同一事件不同模型不可误认为不同地震。</li><li><strong>时间与震级：</strong>震级检索条件是USGS目录的 <code>mag</code> 字段，<strong>不保证所有记录都为Mw</strong>。</li><li><strong>几何定义：</strong>确认 <code>LAT/LON</code> 是子断层顶部中心、底部中心还是质心；核对 DEPTH、STRIKE、DIP、RAKE、SLIP 的单位和符号。</li><li><strong>可计算性：</strong>FSP下载成功不代表可直接送入Okada；不同产品的字段安排、注释行与参考点约定可能不同，需要逐个解析、转换并检查。</li></ol>
+<h2 id="okada">6. 与 Okada 地震位错计算如何连接？</h2>
+<p>本项目的后续处理由FSP解析/转换程序（如 <code>P34_convert_one_USGS_FSP</code>）与 <code>okada85.m</code> 等函数完成。对于第 <em>i</em> 个子断层，先将几何和滑移投影到局部东、北坐标系，确认断层<strong>质心</strong>深度，再计算三维位移；弹性线性近似下叠加各子断层结果：</p>
+<div class="eq">u_E(x,y) = Σᵢ u_E,ᵢ(x,y)
+u_N(x,y) = Σᵢ u_N,ᵢ(x,y)
+u_Z(x,y) = Σᵢ u_Z,ᵢ(x,y)
+
+区域平均同震抬升 = Σⱼ Aⱼ Mⱼ u_Z,ⱼ / Σⱼ Aⱼ Mⱼ</div>
+<p>注意 <code>okada85.m</code> 函数约定断层深度是<strong>矩形断层质心深度</strong>，而FSP模型可能以子断层顶部深度表示，必须转换。相关理论、实际函数参数及示例请参阅本站 <a href="okada-elastic-halfspace.html">Okada 位错模型技术专栏</a>。</p>
+<div class="box warn"><strong>北太平洋项目特别提醒：</strong>先前的 USGS 三月方案包含2011年3月多个事件，而Wei与Fujii–Satake方案仅为3月11日主震。若用这些结果计算“不同主震模型的标准差”，应先统一地震事件集合；否则只是不同计算方案之间的离散度。</div>
+<h2 id="cautions">7. 原脚本的已知问题、边界与改进建议</h2>
+<p>这里区分<strong>实际执行的查询条件</strong>与<strong>保存到MAT结构中的汇总字符串</strong>。在 <code>P13_download_USGS_FSP_M6.m</code> 中，查询实际使用M≥6、结束界限2025-01-01，但原始 <code>SUMMARY</code> 错写为M≥7与2024-12-01。应修正这些元数据，以免后续研究记录发生误读：</p>
+<pre><code>% 原 M6 下载器的汇总元数据存在不一致：
+% 实际查询：2005-01-01 &lt;= t &lt; 2025-01-01, M &gt;= 6
+% 汇总字段原写成 end_exclusive_utc=&#x27;2024-12-01&#x27;, min_magnitude=7
+% 建议修改为：
+SUMMARY.end_exclusive_utc = &#x27;2025-01-01&#x27;;
+SUMMARY.min_magnitude = 6.0;
+% 只修正汇总值；实际目录查询不因汇总字段变化而改变。</code></pre>
+<p>脚本还应改进：超过20,000事件时自动分页、记录远程产品更新时间或校验值、下载前后对同名文件进行去重比较，并为网络异常提供更易恢复的重试日志。使用者不应假定“USGS所有M≥6地震都有FSP”；USGS有限断层产品更常见于大型地震，其具体覆盖由产品发布情况决定。</p>
+<h2 id="references">8. 官方出处、软件与引用</h2>
+<ol>
+<li><a href="https://earthquake.usgs.gov/fdsnws/event/1/" target="_blank" rel="noopener">USGS FDSN Event Web Service</a>：地震目录检索参数、查询及分页规则。</li>
+<li><a href="https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson_detail.php" target="_blank" rel="noopener">USGS GeoJSON Detail Format</a>：单事件 <code>products</code> 与资源链接结构。</li>
+<li><a href="https://earthquake.usgs.gov/data/finitefault/" target="_blank" rel="noopener">USGS Finite Faults</a>：有限断层模型内容、FSP数据产品说明及相关文献。</li>
+<li><a href="https://earthquake.usgs.gov/data/catalog/access/" target="_blank" rel="noopener">USGS ComCat Data Access</a>：目录访问及查询接口。</li>
+<li>Okada, Y. (1985). <a href="https://doi.org/10.1785/BSSA0750041135" target="_blank" rel="noopener">Surface deformation due to shear and tensile faults in a half-space</a>. <em>Bulletin of the Seismological Society of America</em>, 75(4), 1135–1154. 用于后续位错解析计算，<strong>并非USGS下载脚本的出处</strong>。</li>
+</ol>
+<p class="small">来源与复现说明：本文所述P13系列函数是研究项目的MATLAB自动下载脚本，而非USGS发布的软件。USGS负责提供地震目录及有限断层数据产品。本文没有远程批量下载、未统计事件数，也未声称所有潜在模型均可访问。投稿时应按实际选用模型记录其提供者及版本。</p>
+<a href="index.html">← 返回 Research Notes</a></main><footer class="footer"><div class="wrap">© 2026 Chistrong Wen · Academic Research Notes</div></footer></body></html>
