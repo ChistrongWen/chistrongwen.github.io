@@ -12,52 +12,9 @@ const controls = new OrbitControls(camera,renderer.domElement);controls.enableDa
 const root = new THREE.Group();scene.add(root);
 const texture=new THREE.TextureLoader().load('assets/earth-map.png');texture.colorSpace=THREE.SRGBColorSpace;
 const globe=new THREE.Mesh(new THREE.SphereGeometry(1,96,64),new THREE.MeshStandardMaterial({map:texture,roughness:1,metalness:0}));root.add(globe);
-// Geographic VECTOR coastline: TXT lon/lat polylines, never a raster texture.
-// The source file lives at earth/data/coastline.txt. Line segments are
-// placed above both the base sphere and the scientific-value overlay.
-const coastlineGroup=new THREE.Group();root.add(coastlineGroup);
-async function loadVectorCoastline(){
-  try {
-    const res=await fetch('data/coastline.txt');
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    const raw=await res.text();
-    const verts=[];
-    let prev=null;
-    const radius=1.017; // main science overlay has radius=1.007
-    const pushPoint=(lon,lat)=>{
-      const lambda=THREE.MathUtils.degToRad(lon);
-      const phi=THREE.MathUtils.degToRad(lat);
-      const c=Math.cos(phi);
-      return [-radius*c*Math.sin(lambda),radius*Math.sin(phi),-radius*c*Math.cos(lambda)];
-    };
-    for(const line of raw.split(/\r?\n/)){
-      const t=line.trim();
-      if(!t||t.startsWith('#'))continue;
-      if(t.startsWith('>')){prev=null;continue;}
-      const xy=t.split(/[\s,]+/);
-      if(xy.length<2)continue;
-      const lon=Number(xy[0]),lat=Number(xy[1]);
-      if(!Number.isFinite(lon)||!Number.isFinite(lat)||Math.abs(lat)>90)continue;
-      const next={lon,lat};
-      if(prev && Math.abs(lon-prev.lon)<180){
-        // Great-circle subdivision follows the sphere rather than a flat chord.
-        const steps=Math.max(1,Math.ceil(Math.hypot(lon-prev.lon,lat-prev.lat)/1.25));
-        let q=pushPoint(prev.lon,prev.lat);
-        for(let k=1;k<=steps;k++){
-          const alpha=k/steps;
-          const r=pushPoint(prev.lon+(lon-prev.lon)*alpha,prev.lat+(lat-prev.lat)*alpha);
-          verts.push(...q,...r);q=r;
-        }
-      }
-      prev=next;
-    }
-    const geometry=new THREE.BufferGeometry();
-    geometry.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
-    const material=new THREE.LineBasicMaterial({color:0x080808,transparent:false,depthTest:true,depthWrite:false});
-    coastlineGroup.add(new THREE.LineSegments(geometry,material));
-  }catch(err){console.warn('Vector coastline unavailable:',err);}
-}
-loadVectorCoastline();
+// Coastline outlines from the existing earth-map.png, rendered above scientific overlays.
+const coastlineTexture=new THREE.TextureLoader().load('assets/coastlines.png');coastlineTexture.colorSpace=THREE.SRGBColorSpace;
+const coastlines=new THREE.Mesh(new THREE.SphereGeometry(1.014,144,96),new THREE.MeshBasicMaterial({map:coastlineTexture,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1}));root.add(coastlines);
 root.add(new THREE.Mesh(new THREE.SphereGeometry(1.018,64,48),new THREE.MeshBasicMaterial({color:0x4aa4d5,transparent:true,opacity:.085,side:THREE.BackSide})));
 scene.add(new THREE.AmbientLight(0xffffff,1.7));const light=new THREE.DirectionalLight(0xffffff,1.7);light.position.set(3,2,5);scene.add(light);
 let running=true,values=[],limits=1,overlayTexture=null,autoLimits=1,manualScaleRatio=1;
@@ -189,7 +146,7 @@ async function loadDynamicCatalog(){
     }
   }catch(err){console.warn('Automatic CSV catalog unavailable; existing GIA layers remain usable.',err);}
 }
-const catalogReady=loadDynamicCatalog();
+loadDynamicCatalog();
 const download=$('downloadCsv');
 async function selectLayer(key){
   const request=++activeRequest;
@@ -220,27 +177,7 @@ updatePaletteLegend();
 $('layer').addEventListener('change',e=>selectLayer(e.target.value));
 // Load after the base globe has painted, so dataset errors cannot block the globe.
 $('layer').value='earth';
-// Default view: the hosted sea-level trend (not its uncertainty), using Jet.
-// Wait for the automatically generated CSV catalog before choosing the layer.
-// Existing layer selection, CSV parsing, and all other controls are unchanged.
-catalogReady.then(()=>{
-  const candidates=Object.values(dynamicLayers);
-  const seaLevelTrend=candidates.find(item=>
-    item.kind==='trend' &&
-    /sea[_ -]?level/i.test(item.file) &&
-    /trend/i.test(item.file) &&
-    item.column.toLowerCase()==='trend_mm_yr'
-  );
-  const fallback=candidates.find(item=>
-    item.kind==='trend' && /sea[_ -]?level/i.test(item.file)
-  );
-  const key=(seaLevelTrend||fallback)?.id||'gia_vlm';
-  // Respect a user selection if it was made before catalog loading finished.
-  if($('layer').value!=='earth')return;
-  activeCpt='jet';$('cptSelect').value='jet';updatePaletteLegend();
-  $('layer').value=key;
-  selectLayer(key);
-});
+setTimeout(()=>{ $('layer').value='gia_vlm'; selectLayer('gia_vlm'); },800);
 $('rotateBtn').onclick=()=>{running=!running;$('rotateBtn').textContent=running?'⏸ Pause rotation':'▶ Resume rotation';};
 $('resetBtn').onclick=()=>{camera.position.set(0,0,3.55);controls.target.set(0,0,0);root.rotation.set(0,0,0);controls.update();};
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();renderer.domElement.addEventListener('click',event=>{const rect=renderer.domElement.getBoundingClientRect();pointer.x=2*(event.clientX-rect.left)/rect.width-1;pointer.y=1-2*(event.clientY-rect.top)/rect.height;raycaster.setFromCamera(pointer,camera);let p=raycaster.intersectObject(globe)[0];if(!p)return;const local=root.worldToLocal(p.point.clone()).normalize();const lat=THREE.MathUtils.radToDeg(Math.asin(local.y));const lon=((THREE.MathUtils.radToDeg(Math.atan2(-local.x,-local.z))+540)%360)-180;let msg=`Lat ${lat.toFixed(2)}°, Lon ${lon.toFixed(2)}°`;if(values.length&&$('layer').value!=='earth'){const nearest=values.reduce((best,d)=>{const dl=((((d.lon-lon)+540)%360)-180)*Math.cos(lat*Math.PI/180);const dist=dl*dl+(d.lat-lat)**2;return dist<best.dist?{d,dist}:best},{dist:Infinity});if(Math.sqrt(nearest.dist)<5)msg+=` · Nearby sample ${nearest.d.value.toPrecision(4)} ${$('units').value}`;} $('tip').textContent=msg;});
