@@ -15,6 +15,22 @@
       "column": "se_mm_yr",
       "unit": "mm/yr",
       "kind": "uncertainty"
+    },
+    {
+      "id": "csv:JPL_mascon_trend_2003_2024.csv:trend_mm_yr",
+      "label": "JPL Mascon Trend 2003 2024 — Trend",
+      "file": "JPL_mascon_trend_2003_2024.csv",
+      "column": "trend_mm_yr",
+      "unit": "mm/yr",
+      "kind": "trend"
+    },
+    {
+      "id": "csv:JPL_mascon_trend_2003_2024.csv:se_mm_yr",
+      "label": "JPL Mascon Trend 2003 2024 — Uncertainty (1 SE)",
+      "file": "JPL_mascon_trend_2003_2024.csv",
+      "column": "se_mm_yr",
+      "unit": "mm/yr",
+      "kind": "uncertainty"
     }
   ]
 }
