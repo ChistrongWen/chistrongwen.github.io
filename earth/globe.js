@@ -146,7 +146,7 @@ async function loadDynamicCatalog(){
     }
   }catch(err){console.warn('Automatic CSV catalog unavailable; existing GIA layers remain usable.',err);}
 }
-loadDynamicCatalog();
+const catalogReady=loadDynamicCatalog();
 const download=$('downloadCsv');
 async function selectLayer(key){
   const request=++activeRequest;
@@ -177,7 +177,27 @@ updatePaletteLegend();
 $('layer').addEventListener('change',e=>selectLayer(e.target.value));
 // Load after the base globe has painted, so dataset errors cannot block the globe.
 $('layer').value='earth';
-setTimeout(()=>{ $('layer').value='gia_vlm'; selectLayer('gia_vlm'); },800);
+// Default view: the hosted sea-level trend (not its uncertainty), using Jet.
+// Wait for the automatically generated CSV catalog before choosing the layer.
+// Existing layer selection, CSV parsing, and all other controls are unchanged.
+catalogReady.then(()=>{
+  const candidates=Object.values(dynamicLayers);
+  const seaLevelTrend=candidates.find(item=>
+    item.kind==='trend' &&
+    /sea[_ -]?level/i.test(item.file) &&
+    /trend/i.test(item.file) &&
+    item.column.toLowerCase()==='trend_mm_yr'
+  );
+  const fallback=candidates.find(item=>
+    item.kind==='trend' && /sea[_ -]?level/i.test(item.file)
+  );
+  const key=(seaLevelTrend||fallback)?.id||'gia_vlm';
+  // Respect a user selection if it was made before catalog loading finished.
+  if($('layer').value!=='earth')return;
+  activeCpt='jet';$('cptSelect').value='jet';updatePaletteLegend();
+  $('layer').value=key;
+  selectLayer(key);
+});
 $('rotateBtn').onclick=()=>{running=!running;$('rotateBtn').textContent=running?'⏸ Pause rotation':'▶ Resume rotation';};
 $('resetBtn').onclick=()=>{camera.position.set(0,0,3.55);controls.target.set(0,0,0);root.rotation.set(0,0,0);controls.update();};
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();renderer.domElement.addEventListener('click',event=>{const rect=renderer.domElement.getBoundingClientRect();pointer.x=2*(event.clientX-rect.left)/rect.width-1;pointer.y=1-2*(event.clientY-rect.top)/rect.height;raycaster.setFromCamera(pointer,camera);let p=raycaster.intersectObject(globe)[0];if(!p)return;const local=root.worldToLocal(p.point.clone()).normalize();const lat=THREE.MathUtils.radToDeg(Math.asin(local.y));const lon=((THREE.MathUtils.radToDeg(Math.atan2(-local.x,-local.z))+540)%360)-180;let msg=`Lat ${lat.toFixed(2)}°, Lon ${lon.toFixed(2)}°`;if(values.length&&$('layer').value!=='earth'){const nearest=values.reduce((best,d)=>{const dl=((((d.lon-lon)+540)%360)-180)*Math.cos(lat*Math.PI/180);const dist=dl*dl+(d.lat-lat)**2;return dist<best.dist?{d,dist}:best},{dist:Infinity});if(Math.sqrt(nearest.dist)<5)msg+=` · Nearby sample ${nearest.d.value.toPrecision(4)} ${$('units').value}`;} $('tip').textContent=msg;});
