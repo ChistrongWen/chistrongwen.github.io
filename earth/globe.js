@@ -12,9 +12,52 @@ const controls = new OrbitControls(camera,renderer.domElement);controls.enableDa
 const root = new THREE.Group();scene.add(root);
 const texture=new THREE.TextureLoader().load('assets/earth-map.png');texture.colorSpace=THREE.SRGBColorSpace;
 const globe=new THREE.Mesh(new THREE.SphereGeometry(1,96,64),new THREE.MeshStandardMaterial({map:texture,roughness:1,metalness:0}));root.add(globe);
-// Coastline outlines from the existing earth-map.png, rendered above scientific overlays.
-const coastlineTexture=new THREE.TextureLoader().load('assets/coastlines.png');coastlineTexture.colorSpace=THREE.SRGBColorSpace;
-const coastlines=new THREE.Mesh(new THREE.SphereGeometry(1.014,144,96),new THREE.MeshBasicMaterial({map:coastlineTexture,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1}));root.add(coastlines);
+// Geographic VECTOR coastline: TXT lon/lat polylines, never a raster texture.
+// The source file lives at earth/data/coastline.txt. Line segments are
+// placed above both the base sphere and the scientific-value overlay.
+const coastlineGroup=new THREE.Group();root.add(coastlineGroup);
+async function loadVectorCoastline(){
+  try {
+    const res=await fetch('data/coastline.txt');
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const raw=await res.text();
+    const verts=[];
+    let prev=null;
+    const radius=1.017; // main science overlay has radius=1.007
+    const pushPoint=(lon,lat)=>{
+      const lambda=THREE.MathUtils.degToRad(lon);
+      const phi=THREE.MathUtils.degToRad(lat);
+      const c=Math.cos(phi);
+      return [-radius*c*Math.sin(lambda),radius*Math.sin(phi),-radius*c*Math.cos(lambda)];
+    };
+    for(const line of raw.split(/\r?\n/)){
+      const t=line.trim();
+      if(!t||t.startsWith('#'))continue;
+      if(t.startsWith('>')){prev=null;continue;}
+      const xy=t.split(/[\s,]+/);
+      if(xy.length<2)continue;
+      const lon=Number(xy[0]),lat=Number(xy[1]);
+      if(!Number.isFinite(lon)||!Number.isFinite(lat)||Math.abs(lat)>90)continue;
+      const next={lon,lat};
+      if(prev && Math.abs(lon-prev.lon)<180){
+        // Great-circle subdivision follows the sphere rather than a flat chord.
+        const steps=Math.max(1,Math.ceil(Math.hypot(lon-prev.lon,lat-prev.lat)/1.25));
+        let q=pushPoint(prev.lon,prev.lat);
+        for(let k=1;k<=steps;k++){
+          const alpha=k/steps;
+          const r=pushPoint(prev.lon+(lon-prev.lon)*alpha,prev.lat+(lat-prev.lat)*alpha);
+          verts.push(...q,...r);q=r;
+        }
+      }
+      prev=next;
+    }
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+    const material=new THREE.LineBasicMaterial({color:0x080808,transparent:false,depthTest:true,depthWrite:false});
+    coastlineGroup.add(new THREE.LineSegments(geometry,material));
+  }catch(err){console.warn('Vector coastline unavailable:',err);}
+}
+loadVectorCoastline();
 root.add(new THREE.Mesh(new THREE.SphereGeometry(1.018,64,48),new THREE.MeshBasicMaterial({color:0x4aa4d5,transparent:true,opacity:.085,side:THREE.BackSide})));
 scene.add(new THREE.AmbientLight(0xffffff,1.7));const light=new THREE.DirectionalLight(0xffffff,1.7);light.position.set(3,2,5);scene.add(light);
 let running=true,values=[],limits=1,overlayTexture=null,autoLimits=1,manualScaleRatio=1;
