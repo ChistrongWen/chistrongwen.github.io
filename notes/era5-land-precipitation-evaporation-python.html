@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ERA5-Land 降水与实际蒸散自动下载：CDS API、Spyder与研究区裁剪 | Chistrong Wen</title>
+<meta name="description" content="Python/Spyder批量下载ERA5-Land 2006–2022逐日降水与实际蒸散，CDS API配置、GNSS多边形裁剪、NetCDF输出与质量控制。">
+<link rel="stylesheet" href="style.css"><script defer src="../assets/analytics.js"></script>
+<style>.note{max-width:940px}.note p,.note li{line-height:1.9}.box{padding:18px 22px;background:#edf5fb;border-left:4px solid #1468a0;border-radius:6px;margin:22px 0}.warn{background:#fff7e8;border-color:#c79028}table{border-collapse:collapse;width:100%;font-size:.92rem}td,th{padding:11px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}th{background:#f1f6fa}.scroll{overflow:auto}.eq{padding:16px;background:#f3f7fa;overflow:auto;font-family:ui-monospace,monospace;white-space:pre-wrap}pre{padding:16px;background:#12243a;color:#eff8ff;overflow:auto;border-radius:8px;line-height:1.65;font-size:.86rem}code{overflow-wrap:anywhere}.small{font-size:.88rem;color:#63778b}h2{scroll-margin-top:100px}</style></head>
+<body><header><nav class="wrap nav"><a class="brand" href="../index.html">Chistrong Wen</a><div class="links"><a href="../index.html">Home</a><a href="../index.html#research">Research</a><a class="active" href="index.html">Research Notes</a><a href="../index.html#publications">Publications</a></div></nav></header>
+<div class="hero"><div class="wrap"><div class="eyebrow">RESEARCH NOTE · ERA5-LAND · PYTHON / SPYDER · HYDROLOGY</div><h1>ERA5-Land 降水与实际蒸散：从自动下载到流域水量平衡</h1><p>Copernicus CDS API、2006–2022 年逐日数据、GNSS 多边形裁剪、NetCDF 输出与 MATLAB 对接</p><div class="note-meta">Chistrong Wen · 2026-11-04 · Data &amp; Methods · 中文</div></div></div>
+<main class="wrap note"><a class="back" href="index.html">← 返回 Research Notes</a>
+<div class="box"><strong>核心目标：</strong>用 Python/Spyder 自动下载美国西部 GNSS 反演区域内的 ERA5-Land <strong>降水 P</strong> 和 <strong>实际蒸散 ET</strong>，以 mm/day 输出，之后结合 GNSS 反演总水储量 S，通过 <strong>R = P − ET − dS/dt</strong> 估算径流，并使用独立的 GRDC 记录验证。<strong>下载范围先用外接矩形，下载后才使用黑色边界多边形掩膜。</strong></div>
+<div class="toc"><strong>Contents / 目录</strong><ol>
+<li><a href="#data">数据产品与水量平衡</a></li><li><a href="#study">研究区域与目录</a></li><li><a href="#env">Spyder 环境安装</a></li><li><a href="#cds">CDS API 密钥配置</a></li><li><a href="#script">Python 自动下载与逐日处理</a></li><li><a href="#check">NetCDF 质量控制</a></li><li><a href="#matlab">MATLAB 与 GNSS / GRDC 对接</a></li><li><a href="#errors">常见报错和限制</a></li><li><a href="#refs">数据源与引用</a></li></ol></div>
+<h2 id="data">1. 数据产品与研究用途</h2>
+<p>ERA5-Land 是 ECMWF 陆面再分析产品。本文下载 <code>total_precipitation</code>（总降水）和 <code>total_evaporation</code>（净地表蒸散），取 ERA5-Land 的 00:00 UTC 累计值，将其归入<strong>前一个 UTC 日</strong>；经源单位 m 转换为 mm/day。ERA5-Land 约 9 km 的原生水平分辨率不同于下载网格的坐标间隔；不能把插值网格误认为独立的高分辨率观测。</p>
+<div class="scroll"><table><thead><tr><th>输出</th><th>原始变量</th><th>处理</th><th>单位</th></tr></thead><tbody><tr><td>P</td><td><code>tp</code></td><td>日累计值 × 1000</td><td>mm/day</td></tr><tr><td>ET</td><td><code>e</code></td><td>日累计值 × (−1000)</td><td>mm/day</td></tr><tr><td>Inside_GNSS</td><td>区域矢量</td><td>格点中心位于多边形内=1</td><td>无量纲</td></tr></tbody></table></div>
+<p>ERA5-Land 的蒸散符号约定为<strong>从地表向大气蒸散时原始值为负</strong>；取负后正数表示蒸散损失，负数可以表示凝结。不要把所有负 ET 强行设置为零；也不要把潜在蒸散误当作实际蒸散。</p>
+<div class="eq">dS/dt = P − ET − R    [忽略或单独处理其他跨界水通量]
+R = P − ET − dS/dt
+S: GNSS-derived TWS [mm EWH]
+P, ET, R: basin-mean [mm/day]</div>
+<h2 id="study">2. 研究区域及项目目录</h2>
+<p>本文实例统一使用 <code>USA_border_L1.txt</code>，前两列为经度、纬度，覆盖美国西部 GNSS 反演的黑色研究区。示例时段固定为 <strong>2006-01-01 至 2022-12-31</strong>，文件存于 <code>westUS_discharge/</code> 下。</p>
+<pre><code>westUS_discharge/
+├── USA_border_L1.txt
+├── P07_download_ERA5Land_P_ET.py
+├── P07_ERA5Land_P_ET/
+│   ├── raw/                  # CDS 原始年度下载
+│   └── daily_masked/         # 逐日 mm/day + 多边形掩膜
+│       ├── ERA5Land_P_ET_daily_2006.nc
+│       └── ... ERA5Land_P_ET_daily_2022.nc
+└── P08_GNSS_WaterBalance_Runoff.m</code></pre>
+<div class="box warn"><strong>空间尺度提醒：</strong>多边形掩膜仅按ERA5-Land网格<strong>中心</strong>判断是否属于 GNSS 区域。后续对小流域统计P/ET，最好依据流域与气象格网交叠面积进行加权；单纯用网格中心判断可能使小流域没有入选格点。</div>
+<h2 id="env">3. Spyder / Anaconda 环境安装</h2>
+<p>在 Spyder 的 <strong>IPython Console</strong>（不是 .py 脚本编辑器）查看解释器，安装依赖：</p>
+<pre><code>import sys
+print(sys.executable)
+%pip install cdsapi xarray netCDF4 numpy pandas matplotlib</code></pre>
+<p>安装完成后重启 Kernel，检查：</p>
+<pre><code>import cdsapi, xarray, netCDF4, numpy, pandas, matplotlib
+print("All dependencies are available.")</code></pre>
+<p>如果使用 <code>conda install cdsapi</code> 提示 <code>PackagesNotFoundError</code> 且只有 <code>defaults</code> 通道，可优先使用上面的 <code>%pip</code>，或在终端使用 <code>conda install -c conda-forge cdsapi</code>。确保安装位置与 Spyder 当前解释器相同。</p>
+<h2 id="cds">4. CDS API 密钥配置（macOS）</h2>
+<p>先登录 <a href="https://cds.climate.copernicus.eu/" target="_blank" rel="noopener">Copernicus Climate Data Store</a>，从账户页面获取 Personal Access Token，并在 <a href="https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land" target="_blank" rel="noopener">ERA5-Land 数据集页面</a>接受许可条款。</p>
+<p>若报 <code>Missing/incomplete configuration file: /Users/.../.cdsapirc</code>，在 Spyder Console 执行以下代码（密钥仅写入本地，不应上传GitHub）：</p>
+<pre><code>from pathlib import Path
+import getpass, os
+cfg = Path.home() / ".cdsapirc"
+key = getpass.getpass("CDS Personal Access Token: ").strip()
+cfg.write_text("url: https://cds.climate.copernicus.eu/api\n"
+               f"key: {key}\n")
+os.chmod(cfg, 0o600)
+print("CDS configuration written:", cfg)</code></pre>
+<p>随后测试 <code>client = cdsapi.Client()</code>；客户端成功初始化不代表已获下载权限，仍需真实提交请求确认。</p>
+<h2 id="script">5. Python 批量下载和掩膜：P07</h2>
+<p>使用 <code>P07_download_ERA5Land_P_ET.py</code> 完成两阶段流程：<strong>CDS 年度下载</strong> → <strong>按前一UTC日归属、单位转换、GNSS多边形掩膜和NetCDF输出</strong>。下载请求包含年、月、日、<code>00:00</code> UTC、变量名和经纬度外接矩形。该程序输出约定与下游 MATLAB P08 一致。</p>
+<p><strong>下载核心请求</strong>（此段为P07的关键逻辑摘录；完整源代码应使用项目的 <code>P07_download_ERA5Land_P_ET.py</code>）：</p>
+<pre><code>import cdsapi
+client = cdsapi.Client()
+request = {
+    "variable": ["total_precipitation", "total_evaporation"],
+    "year": "2006",
+    "month": [f"{m:02d}" for m in range(1, 13)],
+    "day": [f"{d:02d}" for d in range(1, 32)],
+    "time": ["00:00"],
+    "area": [NORTH, WEST, SOUTH, EAST],
+    "data_format": "netcdf",
+    "download_format": "unarchived",
+}
+client.retrieve("reanalysis-era5-land", request,
+                "era5land_00utc_2006.nc")</code></pre>
+<p>实际批处理程序读取 <code>USA_border_L1.txt</code> 计算 <code>[N,W,S,E]</code>，按年度保存文件，自动跳过已下载的年度文件，并单独补充<strong>结束年份下一年1月1日00 UTC</strong> 的记录，以覆盖最后一天。若首次试运行，推荐先选小时间范围，避免盲目发起大体积请求。</p>
+<p><strong>为什么时间要减一天？</strong>当下载 2006-01-02 00:00 UTC 的累计降水时，该时刻的累计值通常代表 <strong>2006-01-01</strong> 的一天。因此处理年 Y 的资料需要同时拥有 Y+1 年 1 月 1 日 00 UTC 的记录。</p>
+<pre><code># DataArray 的 UTC 时间标签代表累计结束时刻
+target_day = valid_time - pandas.Timedelta(days=1)
+P_mm_day  = tp * 1000.0
+ET_mm_day = -e * 1000.0
+# (lat, lon) 网格中心套用 GNSS 多边形掩膜
+P_masked  = P_mm_day.where(inside_gnss)
+ET_masked = ET_mm_day.where(inside_gnss)</code></pre>
+<p>在 Spyder 中设置工作目录为 <code>westUS_discharge</code>，点击 F5 执行脚本；或在终端执行：</p>
+<pre><code>python P07_download_ERA5Land_P_ET.py \
+  --border USA_border_L1.txt \
+  --out P07_ERA5Land_P_ET \
+  --start-year 2006 --end-year 2022</code></pre>
+<div class="box"><strong>断点继续：</strong>已存在的年度源文件会被跳过，处理结果单独保存。若某年度源文件损坏或下载不完整，请删除该年度文件后重新请求；不能仅依据文件存在就认定内容完整。</div>
+<h2 id="check">6. 输出 NetCDF 与质量控制</h2>
+<p>处理后的每年文件应包含 <code>lat</code>、<code>lon</code>、<code>time</code>、<code>P_mm_day</code>、<code>ET_mm_day</code>、<code>Inside_GNSS</code>。2006 年应有365天，闰年366天。检查有效格点、范围、单位和日期是否连续。</p>
+<pre><code>import xarray as xr
+fn = "P07_ERA5Land_P_ET/daily_masked/ERA5Land_P_ET_daily_2006.nc"
+ds = xr.open_dataset(fn)
+print(ds)
+print(ds.time.values[0], ds.time.values[-1])
+print(ds["P_mm_day"].attrs, ds["ET_mm_day"].attrs)
+print("inside cells:", int(ds.Inside_GNSS.sum()))
+print("P min/max:", float(ds.P_mm_day.min()), float(ds.P_mm_day.max()))
+print("ET min/max:", float(ds.ET_mm_day.min()), float(ds.ET_mm_day.max()))
+ds.close()</code></pre>
+<p>在 MATLAB 中核查尺寸和变量：</p>
+<pre><code>ncdisp('P07_ERA5Land_P_ET/daily_masked/ERA5Land_P_ET_daily_2006.nc')
+lat = ncread(fn,'lat'); lon = ncread(fn,'lon');
+[LAT,LON] = ndgrid(lat,lon); % 注意先纬度、后经度
+% isinterior(Polygon,LON,LAT)，而不是反过来</code></pre>
+<div class="box warn"><strong>必查事项：</strong>此前 P08 示例曾误写成 <code>[LON,LAT]=ndgrid(la,lo)</code>。正确写法是 <code>[LAT,LON]=ndgrid(la,lo)</code>，否则多边形检测将经纬度互换，可能造成没有气象格点入选。代码示例的 <code>fn</code> 必须先指定实际NetCDF路径。</div>
+<h2 id="matlab">7. 衔接 GNSS 水储量与 GRDC 径流</h2>
+<p>在每个<strong>完全位于黑色GNSS区域内</strong>且经前序筛选的流域中，从ERA5-Land网格提取面积加权的 P、ET，读取 GNSS TWS（mm EWH），再按统一日期计算30天水量平衡：</p>
+<div class="eq">R̄_30(t) = { Σ_[t−29,t] (P − ET) − [ S(t) − S(t−30) ] } / 30
+R̄_30: mm/day，S: mm EWH，P/ET: mm/day</div>
+<p>用 <code>Q_obs(mm/day)=86.4×Q_GRDC(m³/s)/A(km²)</code> 与反演径流在<strong>完全相同的30天支持区间</strong>比较，并报告NSE、KGE、RMSE、Bias等。GNSS观测的日期是日初还是日末、ERA5-Land的UTC日界线，以及30天窗口的左右端点必须统一；不要把平滑后的估算径流称为独立的逐日径流。</p>
+<p>水量平衡假定未列出的跨界地下水流、人工取水与调水等通量可忽略或已单独处理；GRDC仅用于独立验证，不参与计算。水量平衡产生的负径流应保留为诊断信号，不应自动截零。</p>
+<h2 id="errors">8. 常见错误与研究限制</h2>
+<div class="scroll"><table><thead><tr><th>问题</th><th>原因 / 正确处理</th></tr></thead><tbody>
+<tr><td><code>ModuleNotFoundError: cdsapi</code></td><td>在 Spyder 实际使用的解释器中安装 <code>%pip install cdsapi</code> 并重启Kernel。</td></tr>
+<tr><td><code>PackagesNotFoundError</code></td><td>conda 的 defaults 通道不含此包；改用pip或conda-forge。</td></tr>
+<tr><td><code>Missing/incomplete .cdsapirc</code></td><td>本地配置 <code>url</code> 和 <code>key</code>，勿公开Token。</td></tr>
+<tr><td>CDS 权限 / license 错误</td><td>确认账号登录、使用条款接受、API配置有效。</td></tr>
+<tr><td><code>lake3.kml</code> 不存在</td><td>这是其他KML脚本的文件路径错误；当前ERA5-Land处理使用 <code>USA_border_L1.txt</code>。</td></tr>
+<tr><td>末日缺失或错年</td><td>ERA5-Land 00 UTC 累计值归属前一天；最后一天需要下一年首日记录。</td></tr>
+<tr><td>ET符号错误</td><td>原始净蒸散 <code>e</code> 采用向下为正，实际蒸散损失常为负；输出ET使用 <code>-e×1000</code>。</td></tr>
+<tr><td>流域气象格点为零</td><td>小流域无格点中心；考虑网格-流域交叠面积权重，不要强制补零。</td></tr>
+<tr><td>GNSS TWS与ERA5-Land分辨率不一致</td><td>格点可对齐并不代表可独立分辨该小流域；还需GNSS空间恢复与泄漏敏感性评估。</td></tr>
+</tbody></table></div>
+<h2 id="refs">9. 官方数据与引用</h2>
+<ol><li><a href="https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land" target="_blank" rel="noopener">Copernicus Climate Data Store：ERA5-Land hourly data</a>。</li>
+<li><a href="https://confluence.ecmwf.int/display/CKB/ERA5-Land%3A+data+documentation" target="_blank" rel="noopener">ECMWF：ERA5-Land 数据文档、累计量时间归属及蒸散符号</a>。</li>
+<li><a href="https://cds.climate.copernicus.eu/how-to-api" target="_blank" rel="noopener">CDS API 官方配置指南</a>。</li>
+<li>Muñoz-Sabater, J., et al. (2021). <a href="https://doi.org/10.5194/essd-13-4349-2021" target="_blank" rel="noopener">ERA5-Land: a state-of-the-art global reanalysis dataset for land applications.</a> <i>Earth System Science Data</i>, 13, 4349–4383.</li></ol>
+<p class="small">Version 1.0 · 2026-11-04。本文记录可复现的数据下载和预处理流程，并不表示已经在本地完成17年下载、流域面积加权计算或径流验证。实际使用前应检查CDS最新请求参数及产品元数据。</p><a href="index.html">← 返回 Research Notes</a>
+</main><footer class="footer"><div class="wrap">© 2026 Chistrong Wen · Academic Research Notes</div></footer></body></html>
