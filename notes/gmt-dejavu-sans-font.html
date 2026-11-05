@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="macOS 下 GMT 配置 DejaVu Sans 字体：Homebrew 安装、PSL_custom_fonts 注册、Ghostscript 路径、完整 SH 示例与 PDF 字体嵌入检查。"><title>GMT 配置 DejaVu Sans 字体：macOS 安装、注册与 PDF 验证 | Chistrong Wen</title><link rel="stylesheet" href="style.css"></head><body><header><nav class="wrap nav"><a class="brand" href="../index.html">Chistrong Wen</a><div class="links"><a href="../index.html">Home</a><a href="../index.html#research">Research</a><a class="active" href="index.html">Research Notes</a><a href="../index.html#publications">Publications</a></div></nav></header><div class="hero"><div class="wrap"><div class="eyebrow">RESEARCH NOTE · GMT &amp; MAPPING</div><h1>GMT 中配置 DejaVu Sans 字体</h1><p>从 macOS 字体安装到 GMT 注册、Ghostscript 查找与 PDF 嵌入验证，让 GMT 与 Python 图件保持一致。</p><div class="note-meta">Chistrong Wen · Published: 2026-11-05 · Updated: 2026-11-05 · Technical tutorial</div></div></div><main class="wrap note"><a class="back" href="index.html">← All research notes</a><div class="notice"><b>适用环境：</b>macOS + GMT 6 + Ghostscript。字体安装与注册执行一次；GS_FONTPATH 在每个绘图脚本中设置。实际字体路径、软件版本与 PDF 嵌入状态需在本机检查。</div><h2>为什么安装字体后 GMT 仍然不能识别？</h2><p>GMT 的 PostScript 输出使用字体的 PostScript 名称。macOS 字体册中的显示名称为 <b>DejaVu Sans</b>，GMT 参数中应写为 <code>DejaVuSans</code>。配置分为两步：通过 <code>PSL_custom_fonts.txt</code> 向 GMT 注册名称，再通过 <code>GS_FONTPATH</code> 让 Ghostscript 找到字体文件。仅修改 FONT 参数，或仅在系统中安装字体，都可能不足。</p>
+<h2>1. 环境与字体安装</h2><p>本文针对 macOS、GMT 6 和 Ghostscript，使用 Homebrew 安装普通字重的 DejaVu Sans。先确认正在使用的软件版本：</p><pre><code>gmt --version
+gs --version
+brew --version
+brew install --cask font-dejavu-sans
+ls -l "$HOME/Library/Fonts/DejaVuSans.ttf"</code></pre><p>如果已经安装完整的 DejaVu 字体包，无需再安装相冲突的 Homebrew cask；确认现有 <code>DejaVuSans.ttf</code> 所在目录即可。本文未要求安装粗体或斜体文件。</p>
+<h2>2. 向 GMT 注册字体（执行一次）</h2><p>在 GMT 用户目录添加注册记录，保留已有的其他字体。第三列 0 表示允许字体重编码；0.729 是普通字重的大写字母字高与字号的近似比例，用于标注排版，并非空间缩放参数。</p><pre><code>gmt_font_dir="${GMT_USERDIR:-$HOME/.gmt}"
+mkdir -p "$gmt_font_dir"
+font_registry="$gmt_font_dir/PSL_custom_fonts.txt"
+touch "$font_registry"
+
+if ! awk '$1=="DejaVuSans"{found=1} END{exit !found}' "$font_registry"; then
+    printf '\nDejaVuSans 0.729 0\n' &gt;&gt; "$font_registry"
+fi
+
+gmt text -L | awk '/DejaVuSans/'</code></pre><p>最后一条命令应列出 DejaVuSans。如果当前绘图目录中另有 <code>PSL_custom_fonts.txt</code>，应检查是否存在不同的字体定义或搜索优先级问题。使用自定义 GMT_USERDIR 时，注册文件也应放在该用户目录。</p>
+<h2>3. 在每个 SH 绘图脚本中设置搜索路径</h2><p>将下面内容放在 <code>gmt begin</code> 之前。这样通过终端、编辑器或其他进程运行脚本时，都能传递字体路径，无需依赖某个交互终端的临时设置。</p><pre><code>export GS_FONTPATH="$HOME/Library/Fonts:/Library/Fonts${GS_FONTPATH:+:$GS_FONTPATH}"</code></pre><p>如果字体位于其他位置，请将它的实际父目录加入搜索路径。按照 GMT 官方说明，正确的字体名称与搜索路径通常已足够，不需要编辑 Ghostscript 的系统 Fontmap。</p>
+<h2>4. 统一全局字体与显式文字字体</h2><p>以下设置放在 <code>gmt begin</code> 之后。普通刻度为 8 pt，轴标签与子图文字为 10 pt。字号应根据最终印刷尺寸检查。</p><pre><code>gmt set PS_CHAR_ENCODING ISO-8859-1
+gmt set MAP_DEGREE_SYMBOL degree
+
+gmt set FONT 8p,DejaVuSans,black
+gmt set FONT_ANNOT_PRIMARY 8p,DejaVuSans,black
+gmt set FONT_ANNOT_SECONDARY 8p,DejaVuSans,black
+gmt set FONT_LABEL 10p,DejaVuSans,black
+gmt set FONT_TITLE 10p,DejaVuSans,black
+gmt set FONT_TAG 10p,DejaVuSans,black</code></pre><p>全局字体不会覆盖命令内明确指定的字体。已有脚本中的 Helvetica、Times-Roman，或字体编号 4（Helvetica-Bold），应逐项改为所需的 DejaVuSans。子图标注示例：</p><pre><code>gmt text -F+cTL+f10p,DejaVuSans,black+jTL \
+    -D0.15c/-0.15c -N &lt;&lt; EOF
+(a) Monthly sea level
+EOF</code></pre><p>字体设置不会改变线宽或线型。坐标轴可继续使用 <code>MAP_FRAME_PEN 0.5p,black</code>；实线使用 <code>-W1p,blue</code>，虚线使用 <code>-W1p,blue,--</code>。</p>
+<h2>5. 可直接运行的最小测试</h2><p>保存为 <code>DejaVuSans_test.sh</code>，执行 <code>bash DejaVuSans_test.sh</code>。此示例不需要外部数据，会生成 PNG 与 PDF。</p><pre><code>#!/usr/bin/env bash
+set -e
+cd "$(dirname "$0")"
+
+export GS_FONTPATH="$HOME/Library/Fonts:/Library/Fonts${GS_FONTPATH:+:$GS_FONTPATH}"
+
+gmt begin DejaVuSans_test png,pdf E300
+    gmt set PS_CHAR_ENCODING ISO-8859-1
+    gmt set MAP_DEGREE_SYMBOL degree
+    gmt set FONT 10p,DejaVuSans,black
+    gmt set FONT_LABEL 10p,DejaVuSans,black
+    gmt set MAP_FRAME_TYPE plain
+    gmt set MAP_FRAME_PEN 0.5p,black
+
+    gmt basemap -R0/10/0/6 -JX10c/6c \
+        -BWSen -Bxa2 -Bya1+l"Sea level (mm)"
+
+    gmt text -F+f12p,DejaVuSans,black+jCM &lt;&lt; EOF
+5 4 DejaVu Sans
+5 3 North Pacific sea-level budget
+5 2 5.70 +/- 0.12 mm/yr
+EOF
+gmt end</code></pre><h2>6. 验证 PDF 是否实际使用该字体</h2><p>在支持查看字体信息的 PDF 阅读器中检查字体名称及嵌入状态。也可使用 Poppler 的 pdffonts：</p><pre><code># 可选工具
+brew install poppler
+
+pdffonts DejaVuSans_test.pdf</code></pre><p>应看到 DejaVuSans，名称前可能带有子集前缀，且 <code>emb</code> 为 yes。仅看 PNG 外观不能证明字体没有被替换。检查终端中是否出现找不到字体或字体替换的警告。</p>
+<h2>7. 常见问题与适用范围</h2><ul><li><b>GMT 报字体名称无效：</b>检查名称是否为 DejaVuSans，以及 GMT 用户目录中的注册文件；不要只写系统显示名称 DejaVu Sans。</li><li><b>GMT 识别，但导出的字体不对：</b>检查 Ghostscript 能否访问实际 TTF 文件，以及 GS_FONTPATH 是否在当前脚本中导出。</li><li><b>部分文字仍是 Helvetica：</b>检查 gmt text 的 +f、图例记录和命令级参数是否覆盖全局设置。</li><li><b>希腊字母、负号或中文异常：</b>DejaVu Sans 的字符覆盖不代表 GMT 的 PostScript 编码支持任意 UTF-8。本文 ISO-8859-1 示例使用英文与 ASCII；其他字符需按 GMT 编码规则处理，中文需要另外的字体与输出方案。</li><li><b>粗体或斜体：</b>必须安装并分别注册对应的实际字体文件与 PostScript 名称，不能假定普通字重 cask 已包含所有变体。</li><li><b>与 Python 统一：</b>Matplotlib 中通常使用显示名称 DejaVu Sans，GMT 中使用 PostScript 名称 DejaVuSans；保持最终字号、字重与输出尺寸一致。</li></ul>
+<h2>8. 论文图件中的字体选择</h2><p>DejaVu Sans 是无衬线字体，适合统一 GMT 与 Python 图件。它不是 Nature 专用字体。Nature 官方图件指南优先推荐 Helvetica 或 Arial；投稿时应核对目标期刊要求，并确保全篇图件字体一致、矢量输出可编辑、字体正确嵌入。</p>
+<h2>参考与官方文档</h2><ol><li><a href="https://docs.generic-mapping-tools.org/6.6/reference/postscript-fonts.html" target="_blank" rel="noopener">GMT：PostScript fonts 与自定义字体注册</a></li><li><a href="https://docs.generic-mapping-tools.org/6.6/gallery/ex31.html" target="_blank" rel="noopener">GMT 示例 31：使用非默认字体</a></li><li><a href="https://formulae.brew.sh/cask/font-dejavu-sans" target="_blank" rel="noopener">Homebrew：font-dejavu-sans</a></li><li><a href="https://research-figure-guide.nature.com/figures/preparing-figures-our-specifications/" target="_blank" rel="noopener">Nature：图件字体与输出规范</a></li></ol>
+<h2>更新记录</h2><p>2026-11-05 — 整理 macOS 下的字体安装、GMT 注册、Ghostscript 搜索路径和 PDF 验证流程。</p></main><footer class="footer"><div class="wrap">© 2026 Chistrong Wen · Academic Research Notes · <a href="https://blog.csdn.net/weixin_43047707" target="_blank" rel="noopener">CSDN archive ↗</a></div></footer></body></html>
