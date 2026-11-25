@@ -46,11 +46,14 @@
     .cv-timeline strong{font-weight:680}.cv-intro{display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap}
     .publication-list{padding-left:22px;display:grid;gap:14px}.publication-list li{padding-left:5px}
     @media(max-width:660px){.cv-timeline li{grid-template-columns:1fr;gap:2px}}
-  </style>
+  
+    /* Keep the desktop navigation on one line; allow wrapping on smaller screens. */
+    @media(min-width:1100px){header nav.wrap{width:min(1500px,calc(100% - 44px))}header nav .brand{white-space:nowrap;flex-shrink:0}header nav .links{flex-wrap:nowrap;gap:clamp(8px,1.05vw,19px);white-space:nowrap}header nav .links a{font-size:clamp(.78rem,1.05vw,.92rem)}}
+</style>
   <script defer src="assets/analytics.js"></script>
 </head>
 <body>
-<header><nav class="wrap" aria-label="Main navigation"><a class="brand" href="#home">Chistrong Wen</a><div class="links"><a href="#about">About</a><a href="#research">Research</a><a href="#highlights">Highlights</a><a href="notes/">Research Notes</a><a href="earth/">Interactive Earth</a><a href="learning/" target="_blank" rel="noopener noreferrer">Learning Resources</a><a href="#publications">Publications</a><a href="#cv">Academic CV</a><a href="#talks">Talks</a><a href="#projects">Projects</a><a href="#contact">Contact</a></div></nav></header>
+<header><nav class="wrap" aria-label="Main navigation"><a class="brand" href="#home">Chistrong Wen</a><div class="links"><a href="#about">About</a><a href="#research">Research</a><a href="#highlights">Highlights</a><a href="notes/">Research Notes</a><a href="earth/">Interactive Earth</a><a href="learning/" target="_blank" rel="noopener noreferrer">Resource</a><a href="#publications">Publications</a><a href="#cv">Academic CV</a><a href="#talks">Talks</a><a href="#projects">Projects</a><a href="#contact">Contact</a></div></nav></header>
 <main>
   <div class="hero" id="home">
     <div class="wrap hero-layout">
